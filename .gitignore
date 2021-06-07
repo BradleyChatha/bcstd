@@ -1,0 +1,16 @@
+.dub
+docs.json
+__dummy.html
+docs/
+/bcstd-core
+bcstd-core.so
+bcstd-core.dylib
+bcstd-core.dll
+bcstd-core.a
+bcstd-core.lib
+bcstd-core-test-*
+*.exe
+*.o
+*.obj
+*.lst
+bin/

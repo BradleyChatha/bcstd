@@ -1,0 +1,15 @@
+name "bcstd-core"
+description "A personal betterC library."
+authors "Bradley Chatha"
+copyright "Copyright © 2021, Bradley Chatha"
+license "MIT"
+targetPath "bin"
+targetType "library"
+
+configuration "default" {
+    dflags "-betterC"
+}
+
+configuration "unittest" {
+    dependency "silly" version="~>1.1.1"
+}
