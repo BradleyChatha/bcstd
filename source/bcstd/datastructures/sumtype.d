@@ -18,6 +18,12 @@ struct SumType(UnionT)
         {
             return this.i == 0;
         }
+
+        @safe @nogc
+        size_t index() nothrow const
+        {
+            return this.i;
+        }
     }
 
     @nogc nothrow:
@@ -104,6 +110,7 @@ struct SumType(UnionT)
     }
 
     void opAssign(T)(auto ref T value)
+    if(!is(T == typeof(this)))
     {
         this.set(value);
     }

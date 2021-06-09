@@ -7,9 +7,9 @@ global bcstdCoroutineSwap
     %ifdef win64
         lea rax, [rsp+8] ; This is the stack pointer for the CALLER
         mov r8, [rsp]    ; Return address should be the only thing on the stack.
-        mov r9, GS:[0]   ; TIB stuff
-        mov r10, GS:[8]  ; ^
-        mov r11, GS:[16] ; ^
+        mov r9, gs:[0]   ; TIB stuff
+        mov r10, gs:[8]  ; ^
+        mov r11, gs:[16] ; ^
         mov [%1+8*0], rax
         mov [%1+8*1], r8
         mov [%1+8*2], r12
@@ -44,9 +44,9 @@ global bcstdCoroutineSwap
         mov r8,  [%1+8*10]
         mov r9,  [%1+8*11]
         mov r10, [%1+8*12]
-        mov GS:[0], r8
-        mov GS:[8], r9
-        mov GS:[16], r10
+        mov gs:[0], r8
+        mov gs:[8], r9
+        mov gs:[16], r10
         jmp rax
     %elifdef sysv
     %else

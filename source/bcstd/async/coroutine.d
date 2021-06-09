@@ -1,7 +1,7 @@
-module bcstd.async.colowlevel;
+module bcstd.async.coroutine;
 
 // NOTE: This module doesn't go through the normal allocators for stack allocation, since this is bit of a special case in terms of memory allocation and management.
-import bcstd.datastructures : LinkedList;
+import bcstd.datastructures : LinkedList, SumType;
 import bcstd.memory : g_alloc;
 
 enum DEFAULT_COROUTINE_STACK_SIZE = 1024 * 10;
@@ -70,7 +70,7 @@ struct Coroutine
     CoroutineFunc entryPoint;
     void* context;
     LinkedList!(Coroutine*) callStack;
-    CoroutineStack* stack;
+    CoroutineStack stack;
     CoroutineSuspendedStack suspendedStack;
 
     @safe @nogc nothrow pure const
@@ -80,17 +80,18 @@ struct Coroutine
     }
 }
 
-enum CoroutineStackType : ubyte
+union CoroutineStackUnion
 {
-    standalone
+    StandaloneStack* standalone;
 }
 
-struct CoroutineStack
+struct StandaloneStack
 {
     StackContext context;
     Coroutine* owner;
-    CoroutineStackType type;
 }
+
+alias CoroutineStack = SumType!CoroutineStackUnion;
 
 struct CoroutineSuspendedStack
 {
@@ -99,23 +100,22 @@ struct CoroutineSuspendedStack
 
 extern(C) void bcstdCoroutineSwap(Coroutine* from, Coroutine* to); // Implemented in NASM since D's inline ASM is a bit limited.
 
-CoroutineStack* bcstdCreateCoroutineStack(
-    Coroutine* owner, 
-    CoroutineStackType type, 
+CoroutineStack bcstdCreateStandaloneCoroutineStack(
     size_t minMemory = DEFAULT_COROUTINE_STACK_SIZE,
     bool useGuardPage = true
 )
 {
-    import bcstd.memory : g_alloc;
     auto alloc = pageAlloc(minMemory, useGuardPage);
-    auto stack = g_alloc.make!CoroutineStack(alloc, owner, type);
-    return stack;
+    auto stack = g_alloc.make!StandaloneStack(alloc);
+    if(stack is null)
+        onOutOfMemoryError(null);
+    return CoroutineStack(stack.ptr);
 }
 
-void bcstdDestroyCoroutineStack(ref CoroutineStack* stack)
+void bcstdDestroyCoroutineStack(ref CoroutineStack stack)
 {
-    pageFree(stack.context.base);
-    g_alloc.dispose(stack);
+    releaseMemoryResources(stack);
+    //stack = CoroutineStack.init;
 }
 
 Coroutine* bcstdCreateMainCoroutine()
@@ -125,7 +125,7 @@ Coroutine* bcstdCreateMainCoroutine()
 
 Coroutine* bcstdCreateCoroutine(
     CoroutineFunc func,
-    CoroutineStack* stack,
+    CoroutineStack stack,
     void* context,
 )
 {
@@ -140,8 +140,7 @@ Coroutine* bcstdCreateCoroutine(
 
 void bcstdDestroyCoroutine(ref Coroutine* routine)
 {
-    if(routine.stack.owner == routine)
-        bcstdDestroyCoroutineStack(routine.stack);
+    releaseMemoryResources(routine);
     g_alloc.dispose(routine);
 }
 
@@ -159,18 +158,23 @@ void bcstdStartCoroutine(Coroutine* to)
     to.state = CoroutineState.running;
 
     to.registers[REGISTERS.ret] = cast(ulong)&routineMain;
-    // TODO Handle different stack types.
-    to.registers[REGISTERS.rsp] = cast(ulong)to.stack.context.alignedBot;
 
-    version(Windows)
-    version(X86_64)
-    {
-        to.registers[REGISTERS.gs0]  = 0;
-        to.registers[REGISTERS.gs8]  = cast(ulong)to.stack.context.alignedBot;
-        to.registers[REGISTERS.gs16] = cast(ulong)to.stack.context.alignedTop;
-    }
-
-    *(cast(void**)to.stack.context.alignedBot) = &bcstdExitCoroutine;
+    to.stack.visit!(
+        (StandaloneStack* standalone)
+        {
+            assert(standalone.owner is null, "There is currently another coroutine making use of this standalone stack.");
+            standalone.owner = to;
+            to.registers[REGISTERS.rsp] = cast(ulong)standalone.context.alignedBot;
+            version(Windows)
+            version(X86_64)
+            {
+                to.registers[REGISTERS.gs0]  = 0;
+                to.registers[REGISTERS.gs8]  = cast(ulong)standalone.context.alignedBot;
+                to.registers[REGISTERS.gs16] = cast(ulong)standalone.context.alignedTop;
+            }
+            *(cast(void**)standalone.context.alignedBot) = &bcstdExitCoroutine;
+        }
+    )(to.stack);
     g_currentThreadRoutine = to;
     bcstdCoroutineSwap(from, to);
 }
@@ -180,6 +184,23 @@ private void routineMain()
     g_currentThreadRoutine.entryPoint();
     bcstdExitCoroutine();
     assert(false);
+}
+
+void bcstdResetCoroutine(
+    Coroutine* routine,
+    void* newContext = null,
+    CoroutineFunc newEntryPoint = null,
+)
+{
+    assert(routine.state == CoroutineState.end, "Routine is not in the `end` state.");
+    assert(routine.callStack.length == 0, "Routine still has values on the call stack?");
+    routine.registers[] = 0;
+    if(newContext)
+        routine.context = newContext;
+    if(newEntryPoint)
+        routine.entryPoint = newEntryPoint;
+    releaseMemoryResources(routine, true);
+    routine.state = CoroutineState.start;
 }
 
 void bcstdResumeCoroutine(Coroutine* routine)
@@ -195,6 +216,13 @@ void bcstdResumeCoroutine(Coroutine* routine)
     routine.state = CoroutineState.running;
     g_currentThreadRoutine = routine;
     bcstdCoroutineSwap(from, routine);
+}
+
+void* bcstdGetCoroutineContext()
+{
+    auto routine = g_currentThreadRoutine;
+    assert(routine !is null, "Cannot call this function when not inside a coroutine.");
+    return routine.context;
 }
 
 void bcstdYieldCoroutine()
@@ -215,10 +243,29 @@ private void yieldImpl(CoroutineState endState)
     assert(routine.callStack.length > 0, "Coroutine has no call stack?");
 
     routine.state = endState;
-    auto next = routine.callStack.removeAt(routine.callStack.length - 1);
+    auto next = routine.callStack.removeAtTail(routine.callStack.length - 1);
     assert(next.state == CoroutineState.suspended, "Call stack routine is not in suspended state?");
     g_currentThreadRoutine = next;
     bcstdCoroutineSwap(routine, next);
+}
+
+private void releaseMemoryResources(Coroutine* routine, bool isForReset = false)
+{
+    routine.stack.visit!(
+        (StandaloneStack* standalone)
+        {
+            if(routine.state == CoroutineState.running || routine.state == CoroutineState.suspended)
+                assert(standalone.owner is routine, "??");
+            standalone.owner = null;
+        }
+    )(routine.stack);
+}
+
+private void releaseMemoryResources(CoroutineStack stack)
+{
+    stack.visit!(
+        (StandaloneStack* standalone) => pageFree(standalone.context.base)
+    )(stack);
 }
 
 private @nogc nothrow:
@@ -231,9 +278,9 @@ struct StackContext
 }
 
 pragma(inline, true)
-size_t align32(size_t value) pure
+size_t align16(size_t value) pure
 {
-    return value & ~32;
+    return value & ~16;
 }
 
 version(Windows)
@@ -272,9 +319,9 @@ version(Windows)
             context.alignedTop += info.dwPageSize;
         }
 
-        context.alignedBot -= 40; // Win64 API requires a 32 bit shadow space, and we need another 8 bytes for the default return address.
-        context.alignedBot = cast(ubyte*)((cast(ulong)context.alignedBot).align32);
-        context.alignedTop = cast(ubyte*)((cast(ulong)context.alignedTop).align32);
+        context.alignedBot -= 40; // Win64 ABI requires a 32 byte shadow space, and we need another 8 bytes for the default return address.
+        context.alignedBot = cast(ubyte*)((cast(ulong)context.alignedBot).align16);
+        context.alignedTop = cast(ubyte*)((cast(ulong)context.alignedTop).align16);
 
         return context;
     }
@@ -288,28 +335,14 @@ version(Windows)
 }
 else static assert(false, "TODO for Linux");
 
-@("colowlevel - Create and Free stack")
+@("coroutine - Create and Free stack")
 unittest
 {
-    auto stack = bcstdCreateCoroutineStack(null, CoroutineStackType.standalone, 200, true);
+    auto stack = bcstdCreateStandaloneCoroutineStack(200, true);
     bcstdDestroyCoroutineStack(stack);
 }
 
-@("colowlevel - Create and Free routine")
-unittest
-{
-    static void routine()
-    {
-    }
-
-    auto main  = bcstdCreateMainCoroutine();
-    auto stack = bcstdCreateCoroutineStack(main, CoroutineStackType.standalone);
-    auto co    = bcstdCreateCoroutine(&routine, stack, null);
-    bcstdDestroyCoroutine(co);
-    bcstdDestroyCoroutineStack(stack);
-}
-
-@("colowlevel - Explicit exit")
+@("coroutine - Create and Free routine")
 unittest
 {
     static void routine()
@@ -317,14 +350,13 @@ unittest
     }
 
     auto main  = bcstdCreateMainCoroutine();
-    auto stack = bcstdCreateCoroutineStack(main, CoroutineStackType.standalone);
+    auto stack = bcstdCreateStandaloneCoroutineStack();
     auto co    = bcstdCreateCoroutine(&routine, stack, null);
-    bcstdStartCoroutine(co);
     bcstdDestroyCoroutine(co);
     bcstdDestroyCoroutineStack(stack);
 }
 
-@("colowlevel - Implicit exit")
+@("coroutine - Explicit exit")
 unittest
 {
     static void routine()
@@ -333,14 +365,29 @@ unittest
     }
 
     auto main  = bcstdCreateMainCoroutine();
-    auto stack = bcstdCreateCoroutineStack(main, CoroutineStackType.standalone);
+    auto stack = bcstdCreateStandaloneCoroutineStack();
+    auto co    = bcstdCreateCoroutine(&routine, stack, null);
+    bcstdStartCoroutine(co);
+    bcstdDestroyCoroutine(co);
+    bcstdDestroyCoroutineStack(stack);
+}
+
+@("coroutine - Implicit exit")
+unittest
+{
+    static void routine()
+    {
+    }
+
+    auto main  = bcstdCreateMainCoroutine();
+    auto stack = bcstdCreateStandaloneCoroutineStack();
     auto co    = bcstdCreateCoroutine(&routine, stack, null);
     bcstdStartCoroutine(co);
     bcstdDestroyCoroutine(co);
     bcstdDestroyCoroutineStack(stack);  
 }
 
-@("colowlevel - Suspend")
+@("coroutine - Suspend")
 unittest
 {
     static int num;
@@ -353,7 +400,7 @@ unittest
     }
 
     auto main  = bcstdCreateMainCoroutine();
-    auto stack = bcstdCreateCoroutineStack(main, CoroutineStackType.standalone);
+    auto stack = bcstdCreateStandaloneCoroutineStack();
     auto co    = bcstdCreateCoroutine(&routine, stack, null);
 
     bcstdStartCoroutine(co);
@@ -363,4 +410,52 @@ unittest
 
     bcstdDestroyCoroutine(co);
     bcstdDestroyCoroutineStack(stack);  
+}
+
+@("coroutine - Context")
+unittest
+{
+    int num;
+
+    static void routine()
+    {
+        auto ptr = cast(int*)bcstdGetCoroutineContext();
+        assert(ptr !is null);
+        *ptr = 200;
+    }
+
+    auto main  = bcstdCreateMainCoroutine();
+    auto stack = bcstdCreateStandaloneCoroutineStack();
+    auto co    = bcstdCreateCoroutine(&routine, stack, &num);
+
+    bcstdStartCoroutine(co);
+    assert(num == 200);
+
+    bcstdDestroyCoroutine(co);
+    bcstdDestroyCoroutineStack(stack);  
+}
+
+@("coroutine - Reset")
+unittest
+{
+    int num;
+
+    static void routine()
+    {
+        auto ptr = cast(int*)bcstdGetCoroutineContext();
+        assert(ptr !is null);
+        *ptr += 1;
+    }
+    auto main  = bcstdCreateMainCoroutine();
+    auto stack = bcstdCreateStandaloneCoroutineStack();
+    auto co    = bcstdCreateCoroutine(&routine, stack, &num);
+
+    bcstdStartCoroutine(co);
+    assert(num == 1);
+    bcstdResetCoroutine(co);
+    bcstdStartCoroutine(co);
+    assert(num == 2);
+
+    bcstdDestroyCoroutine(co);
+    bcstdDestroyCoroutineStack(stack);
 }

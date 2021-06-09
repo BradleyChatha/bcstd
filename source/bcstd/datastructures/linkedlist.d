@@ -144,40 +144,25 @@ struct LinkedList(alias T, alias AllocT = SystemAllocator)
     alias removeAt = removeAtHead;
     void removeAtHead()(size_t index, scope ref T dest)
     {
-        auto node = this.getNodeAtHead(index);
-        move(node.value, dest);
-
-        if(this._length == 1)
-        {
-            this._head = null;
-            this._tail = null;
-        }
-        else if(index == 0)
-        {
-            if(node.next !is null)
-                node.next.prev = null;
-            this._head = node.next;
-        }
-        else if(index == this._length-1)
-        {
-            if(node.prev !is null)
-                node.prev.next = null;
-            this._tail = node.prev;
-        }
-        else
-        {
-            node.prev.next = node.next;
-            node.next.prev = node.prev;
-        }
-
-        this._alloc.dispose(node);
-        this._length--;
+        this.removeAtImpl!getNodeAtHead(index, dest);
     }
 
     T removeAtHead()(size_t index)
     {
         T value;
         this.removeAtHead(index, value);
+        return value;
+    }
+
+    void removeAtTail()(size_t index, scope ref T dest)
+    {
+        this.removeAtImpl!getNodeAtTail(index, dest);
+    }
+
+    T removeAtTail()(size_t index)
+    {
+        T value;
+        this.removeAtTail(index, value);
         return value;
     }
 
@@ -220,6 +205,38 @@ struct LinkedList(alias T, alias AllocT = SystemAllocator)
         return this.getAt(index);
     }
 
+    private void removeAtImpl(alias GetterFunc)(size_t index, scope ref T dest)
+    {        
+        auto node = GetterFunc(index);
+        move(node.value, dest);
+
+        if(this._length == 1)
+        {
+            this._head = null;
+            this._tail = null;
+        }
+        else if(index == 0)
+        {
+            if(node.next !is null)
+                node.next.prev = null;
+            this._head = node.next;
+        }
+        else if(index == this._length-1)
+        {
+            if(node.prev !is null)
+                node.prev.next = null;
+            this._tail = node.prev;
+        }
+        else
+        {
+            node.prev.next = node.next;
+            node.next.prev = node.prev;
+        }
+
+        this._alloc.dispose(node);
+        this._length--;
+    }
+
     private inout(Node)* getNodeAtHead()(size_t index) inout
     {
         assert(index < this._length, "Index out of bounds.");
@@ -228,6 +245,19 @@ struct LinkedList(alias T, alias AllocT = SystemAllocator)
         foreach(i; 0..index)
             result = result.next;
 
+        assert(result !is null, "Could not find result?");
+        return result;
+    }
+
+    private inout(Node)* getNodeAtTail()(size_t index) inout
+    {
+        assert(index < this._length, "Index out of bounds.");
+        
+        auto result = cast()this._tail.ptr;
+        const iterations = (this._length - index) - 1;
+        foreach(i; 0..iterations)
+            result = result.prev;
+        
         assert(result !is null, "Could not find result?");
         return result;
     }
@@ -294,4 +324,8 @@ unittest
     assert(list[1] == 1);
     assert(list[2] == 2);
     assert(list[3] == 3);
+    assert(list.removeAtTail(1) == 1);
+    assert(list.removeAtTail(1) == 2);
+    assert(list.removeAtTail(0) == 0);
+    assert(list.removeAtTail(0) == 3);
 }

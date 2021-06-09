@@ -28,7 +28,7 @@ struct HashMurmur3_32(uint Seed)
     @trusted
     void put(const void[] key)
     {
-        const data    = cast(const(ubyte)*)key.ptr;
+        const data    = (cast(const(ubyte)[])key).ptr;
         const nblocks = cast(uint)(key.length / 4);
 
         uint h1 = this._seed;
@@ -36,22 +36,45 @@ struct HashMurmur3_32(uint Seed)
         const uint c1 = 0xcc9e2d51;
         const uint c2 = 0x1b873593;
 
-        const blocks = cast(uint*)(data + (nblocks * 4));
-
-        for(int i = -nblocks; i; i++)
+        if(!__ctfe)
         {
-            version(LittleEndian)
-                uint k1 = blocks[i];
-            else
-                static assert(false, "TODO for Big endian");
+            const blocks = cast(uint*)(data + (nblocks * 4));
+            for(int i = -nblocks; i; i++)
+            {
+                version(LittleEndian)
+                    uint k1 = blocks[i];
+                else
+                    static assert(false, "TODO for Big endian");
 
-            k1 *= c1;
-            k1 = rol(k1, 15);
-            k1 *= c2;
+                k1 *= c1;
+                k1 = rol(k1, 15);
+                k1 *= c2;
 
-            h1 ^= k1;
-            h1 = rol(h1, 13);
-            h1 = h1*5+0xe6546b64; // ok
+                h1 ^= k1;
+                h1 = rol(h1, 13);
+                h1 = h1*5+0xe6546b64; // ok
+            }
+        }
+        else // CTFE can't do reinterpret casts of different byte widths.
+        {
+            for(int i = nblocks; i; i--)
+            {
+                const blockI = (i * 4);
+                uint k1 = (
+                    (data[blockI-3] << 24)
+                  | (data[blockI-2] << 16)
+                  | (data[blockI-1] << 8)
+                  | (data[blockI-0] << 0)
+                );
+
+                k1 *= c1;
+                k1 = rol(k1, 15);
+                k1 *= c2;
+
+                h1 ^= k1;
+                h1 = rol(h1, 13);
+                h1 = h1*5+0xe6546b64;
+            }
         }
 
         const tail = (data + (nblocks * 4));

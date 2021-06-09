@@ -214,6 +214,44 @@ unittest
     static assert(GetBitmaskUda!(Uda, A) == (Uda.a | Uda.c));
 }
 
+struct TypeId
+{
+    string fqn;
+    uint fqnHash;
+
+    bool opEquals(const TypeId other) const @safe pure nothrow
+    {
+        return (this.fqnHash == other.fqnHash && this.fqn == other.fqn);
+    }
+
+    size_t toHash() const @safe pure nothrow
+    {
+        return this.fqnHash;
+    }
+}
+
+template TypeIdOf(alias T)
+{
+    import bcstd.data.hash : Murmur3_32;
+
+    const fqn = T.stringof;// TODO
+    const TypeIdOf = TypeId(
+        fqn,
+        (){Murmur3_32 hash; hash.put(fqn); return hash.value;}()
+    ); 
+}
+///
+@("TypeIdOf")
+unittest
+{
+    const intId = TypeIdOf!int;
+    const stringId = TypeIdOf!string;
+
+    assert(intId.fqn == "int");
+    assert(intId == intId);
+    assert(stringId != intId);
+}
+
 /+++++++++++++++++ STOLEN FROM PHOBOS +++++++++++++++++++/
 /**
 Get the function type from a callable object `func`.
