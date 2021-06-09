@@ -1,8 +1,8 @@
 module bcstd.memory.funcs;
 
 import bcstd.memory.allocator : SystemAllocator, AllocatorWrapperOf;
-
 import bcstd.memory.ptr;
+import bcstd.meta.traits : isPointer; 
 
 @live:
 
@@ -49,7 +49,7 @@ unittest
 @nogc nothrow
 void move(T, bool makeSourceInit = true)(scope ref T source, scope ref T dest)
 {
-    static if(__traits(compiles, T.init.__xdtor()))
+    static if(__traits(compiles, T.init.__xdtor()) && !isPointer!T)
         dest.__xdtor();
     memcpy(&source, &dest, T.sizeof);
 

@@ -35,7 +35,7 @@ struct Array(alias T, alias AllocT = SystemAllocator, alias Grow = DefaultGrowth
         this._slice[this._inUse-1] = value;
     }
 
-    void put()(scope T[] values)
+    void put()(scope T[] values...)
     {
         this.growTo(this._inUse + values.length);
         this._slice[this._inUse-values.length..this._inUse] = values[0..$];

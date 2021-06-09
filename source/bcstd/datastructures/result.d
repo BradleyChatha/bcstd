@@ -6,13 +6,14 @@ struct SimpleResult(T)
 {
     private union ValueOrError
     {
-        T value;
+        static if(!is(T == void)) T value;
         bcstring error;
     }
 
     private bool _isValid;
     private SumType!ValueOrError _value;
 
+    static if(!is(T == void))
     this()(auto ref T value)
     {
         this._value = value;
@@ -31,6 +32,7 @@ struct SimpleResult(T)
         return this._isValid;
     }
 
+    static if(!is(T == void))
     @property
     ref T value()()
     {

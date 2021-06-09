@@ -1,6 +1,6 @@
 module bcstd.algorithm.common;
 
-import bcstd.meta : isSlice;
+import bcstd.meta : isSlice, ElementType;
 
 @nogc nothrow:
 
@@ -35,19 +35,22 @@ enum OptimisationHint
 }
 
 pragma(inline, true)
-bool empty(T)(const scope auto ref T[] array)
+bool empty(T)(const scope auto ref T array)
+if(isSlice!T)
 {
     return array.length == 0;
 }
 
 pragma(inline, true)
-inout(T) front(T)(scope auto ref inout(T)[] array)
+ElementType!T front(T)(scope auto ref inout(T) array)
+if(isSlice!T)
 {
     return array[0];
 }
 
 pragma(inline, true)
-void popFront(T)(scope auto ref T[] array)
+void popFront(T)(scope auto ref T array)
+if(isSlice!T)
 {
     array = array[1..$];
 }

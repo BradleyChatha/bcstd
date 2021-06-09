@@ -131,6 +131,15 @@ unittest
     static assert(!isSlice!int);
 }
 
+enum isPointer(alias T) = is(T == E*, E);
+///
+@("isPointer")
+unittest
+{
+    static assert(isPointer!(int*));
+    static assert(!isPointer!int);
+}
+
 template ElementType(alias T)
 {
     import bcstd.algorithm.common : isInputRange;

@@ -63,6 +63,12 @@ struct LinkedList(alias T, alias AllocT = SystemAllocator)
         this._length++;
     }
 
+    void putTail(Args...)(scope auto ref Args args)
+    {
+        foreach(ref value; args)
+            this.putTail(value);        
+    }
+
     void putHead()(auto ref T value)
     {
         auto node = this._alloc.make!Node(value);

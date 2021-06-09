@@ -20,6 +20,8 @@ struct SumType(UnionT)
         }
     }
 
+    @nogc nothrow:
+
     private Kind   _kind;
     private UnionT _value;
 
@@ -205,6 +207,8 @@ unittest
     {
         int* dtor;
         int* pblit;
+
+        @nogc nothrow:
 
         this(this)
         {

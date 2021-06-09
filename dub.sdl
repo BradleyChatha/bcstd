@@ -6,6 +6,9 @@ license "MIT"
 targetPath "bin"
 targetType "library"
 
+sourceFiles "dep/bcstd_win64.obj" platform="windows"
+sourceFiles "dep/bcstd_sysv.obj"  platform="linux"
+
 configuration "default" {
     dflags "-betterC"
 }
