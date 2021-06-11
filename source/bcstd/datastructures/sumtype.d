@@ -5,6 +5,8 @@ import bcstd.meta : assertIsPartOfUnion, assertAllSatisfy, Parameters, isSomeFun
 @nogc nothrow
 struct SumType(UnionT)
 {
+    alias Union = UnionT;
+
     // Can't static foreach inside an enum, so this is the next best thing?
     // It really. REALLY sucks that you get -betterC limitations inside of CTFE-only funcs.
     struct Kind

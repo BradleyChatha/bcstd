@@ -2,11 +2,17 @@ module bcstd.memory.funcs;
 
 import bcstd.memory.allocator : SystemAllocator, AllocatorWrapperOf;
 import bcstd.memory.ptr;
-import bcstd.meta.traits : isPointer; 
-
-@live:
+import bcstd.meta.traits : isPointer, UdaOrDefault;
 
 __gshared AllocatorWrapperOf!SystemAllocator g_alloc;
+
+enum OnMove
+{
+    allow,
+    forbid,
+    callPostblit,
+    callUpdateInternalPointers
+}
 
 @nogc nothrow
 void memcpy(scope const void* source, scope void* dest, size_t bytes)
@@ -47,8 +53,11 @@ unittest
 }
 
 @nogc nothrow
-void move(T, bool makeSourceInit = true)(scope ref T source, scope ref T dest)
+void move(T, bool makeSourceInit = true)(scope ref T source, scope return ref T dest)
 {
+    enum MoveAction = UdaOrDefault!(OnMove, T, OnMove.allow);
+    static assert(MoveAction != OnMove.forbid, "Type `"~T.stringof~"` explicitly forbids being moved.");
+
     static if(__traits(compiles, T.init.__xdtor()) && !isPointer!T)
         dest.__xdtor();
     memcpy(&source, &dest, T.sizeof);
@@ -58,6 +67,12 @@ void move(T, bool makeSourceInit = true)(scope ref T source, scope ref T dest)
         auto init = T.init;
         memcpy(&init, &source, T.sizeof);
     }
+    
+    // TODO: Apply OnMove actions for struct members as well, as members' `OnMove` udas aren't respected like this.
+    static if(MoveAction == OnMove.callPostblit)
+        dest.__xpostblit();
+    else static if(MoveAction == OnMove.callUpdateInternalPointers)
+        dest.updateInternalPointers();
 }
 ///
 @("move")
@@ -99,6 +114,36 @@ unittest
 
     assert(a == S.init);
     assert(b.value == 20);
+}
+@("move - forbid")
+unittest
+{
+    @(OnMove.forbid)
+    struct S
+    {
+    }
+
+    S a, b;
+    static assert(!__traits(compiles, move(a, b)));
+}
+@("move - callPostblit")
+unittest
+{
+    int c;
+
+    @(OnMove.callPostblit)
+    struct S
+    {
+        @nogc nothrow
+        this(this)
+        {
+            c++;
+        }
+    }
+
+    S a, b;
+    move(a, b);
+    assert(c == 1);
 }
 
 @nogc nothrow

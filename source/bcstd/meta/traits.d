@@ -181,7 +181,7 @@ unittest
 
 enum isInstanceOf(alias S, alias T) = is(T == S!Args, Args...);
 
-template GetBitmaskUda(alias Uda, alias T)
+template BitmaskUda(alias Uda, alias T)
 {
     Uda get()
     {
@@ -195,10 +195,10 @@ template GetBitmaskUda(alias Uda, alias T)
 
         return value;
     }
-    enum GetBitmaskUda = get();
+    enum BitmaskUda = get();
 }
 ///
-@("GetBitmaskUda")
+@("BitmaskUda")
 unittest
 {
     static enum Uda
@@ -211,7 +211,46 @@ unittest
     @(Uda.a, Uda.c)
     static struct A {}
 
-    static assert(GetBitmaskUda!(Uda, A) == (Uda.a | Uda.c));
+    static assert(BitmaskUda!(Uda, A) == (Uda.a | Uda.c));
+}
+
+template UdaOrDefault(alias Uda, alias T, Uda default_)
+{
+    Uda get()
+    {
+        Uda value = default_;
+
+        static if(__traits(compiles, __traits(getAttributes, T)))
+        static foreach(uda; __traits(getAttributes, T))
+        {
+            static if(__traits(compiles, typeof(uda)) && is(typeof(uda) == Uda))
+            {
+                value = uda;
+                goto LReturn; // Super annoying, but D *still* hates it when a conditional return is generated alongside an always-existing return.
+            }
+        } 
+
+        LReturn:
+        return value;
+    }
+    enum UdaOrDefault = get();
+}
+///
+@("UdaOrDefault")
+unittest
+{
+    static struct Uda {int v;}
+    enum E
+    {
+        a,
+        b
+    }
+
+    @(E.b)
+    struct S{}
+
+    static assert(UdaOrDefault!(Uda, S, Uda(200)) == Uda(200));
+    static assert(UdaOrDefault!(E, S, E.a) == E.b);
 }
 
 struct TypeId
@@ -219,12 +258,12 @@ struct TypeId
     string fqn;
     uint fqnHash;
 
-    bool opEquals(const TypeId other) const @safe pure nothrow
+    bool opEquals(const TypeId other) const @safe @nogc pure nothrow
     {
         return (this.fqnHash == other.fqnHash && this.fqn == other.fqn);
     }
 
-    size_t toHash() const @safe pure nothrow
+    size_t toHash() const @safe @nogc pure nothrow
     {
         return this.fqnHash;
     }
@@ -262,7 +301,7 @@ Note:
 Do not confuse function types with function pointer types; function types are
 usually used for compile-time reflection purposes.
  */
-private template FunctionTypeOf(func...)
+template FunctionTypeOf(func...)
 if (func.length == 1)
 {
     static if (is(typeof(& func[0]) Fsym : Fsym*) && is(Fsym == function) || is(typeof(& func[0]) Fsym == delegate))

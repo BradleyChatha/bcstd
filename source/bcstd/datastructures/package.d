@@ -5,4 +5,5 @@ public import
     bcstd.datastructures.growth,
     bcstd.datastructures.sumtype,
     bcstd.datastructures.result,
-    bcstd.datastructures.linkedlist;
+    bcstd.datastructures.linkedlist,
+    bcstd.datastructures.smartptr;
