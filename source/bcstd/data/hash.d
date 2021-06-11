@@ -61,10 +61,10 @@ struct HashMurmur3_32(uint Seed)
             {
                 const blockI = (i * 4);
                 uint k1 = (
-                    (data[blockI-3] << 24)
-                  | (data[blockI-2] << 16)
-                  | (data[blockI-1] << 8)
-                  | (data[blockI-0] << 0)
+                    (data[blockI-4] << 24)
+                  | (data[blockI-3] << 16)
+                  | (data[blockI-2] << 8)
+                  | (data[blockI-1] << 0)
                 );
 
                 k1 *= c1;

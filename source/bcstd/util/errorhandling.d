@@ -14,7 +14,7 @@ struct BcError
     string module_;
     size_t line;
     int errorCode; // Function/Library specific.
-    private char[BC_ERROR_MAX_MESSAGE_SIZE] _message;
+    private char[BC_ERROR_MAX_MESSAGE_SIZE] _message; // TODO: Don't use stack-allocated stuff for error messages, it's really not effecient, especially inside of tasks.
     private char[] _messageSlice;
 
     @property @safe @nogc
@@ -67,8 +67,6 @@ auto assertNotError(ValueOrErrorT)(auto ref ValueOrErrorT valueOrError)
 @("assertNotError")
 unittest
 {
-    bcAssertTesting = true;
-
     ValueOrError!int a = 69;
     ValueOrError!int b = raise("yolo swag");
 
@@ -82,8 +80,12 @@ unittest
 
 void throwError(BcError error)
 {
-    import bcstd.datastructures : Array;
+    displayError(error);
+    assert(false);
+}
 
+void formatError(OutputRange)(ref OutputRange output, BcError error)
+{
     const part1    = "Unexpected error:\n";
     const part2    = "    File:     ";
     const part3    = "    Module:   ";
@@ -93,7 +95,7 @@ void throwError(BcError error)
     const part7    = "    Message:  ";
     const maxSizeT = "18446744073709551615";
     
-    Array!char output;
+    static if(__traits(hasMember, output, "reserve"))
     output.reserve(
         part1.length
         + part2.length
@@ -116,7 +118,16 @@ void throwError(BcError error)
     output.put(part7); output.put(error.message);
 
     output.put('\0');
-    bcAssertImpl(false, output[]);
+}
+
+void displayError(BcError error)
+{
+    import core.stdc.stdio : printf; // TODO Replace this once bcstd has it's own ability to print.
+    import bcstd.datastructures : Array;
+
+    Array!char output;
+    formatError(output, error);
+    printf("%s\n", output[].ptr);
 }
 
 void bcAssert(string File = __FILE_FULL_PATH__, string Function = __PRETTY_FUNCTION__, string Module = __MODULE__, size_t Line = __LINE__)(
@@ -127,24 +138,3 @@ void bcAssert(string File = __FILE_FULL_PATH__, string Function = __PRETTY_FUNCT
     if(!condition)
         throwError(raise!(File, Function, Module, Line)(message));
 }
-
-version(unittest) private bool bcAssertTesting = false;
-private void bcAssertImpl(bool condition, bcstring message = null)
-{
-    if(message is null)
-        message = "Assertion failure.";
-    
-    if(!condition)
-    {
-        import core.stdc.stdio : printf; // TODO Replace this once bcstd has it's own ability to print.
-        version(unittest)
-        { 
-            if(!bcAssertTesting)
-                printf("%s\n", message.ptr);
-        }
-        else
-            printf("%s\n", message.ptr);
-        assert(false);
-    }
-}
-

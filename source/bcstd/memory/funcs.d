@@ -11,7 +11,8 @@ enum OnMove
     allow,
     forbid,
     callPostblit,
-    callUpdateInternalPointers
+    callUpdateInternalPointers,
+    dontDtorSource
 }
 
 @nogc nothrow
@@ -149,7 +150,12 @@ unittest
 @nogc nothrow
 void emplaceCtor(T, Params...)(scope ref T dest, scope auto ref Params params)
 {
-    auto value = T(params);
+    static if(is(T == struct))
+        auto value = T(params);
+    else static if(Params.length > 0)
+        auto value = params[0];
+    else
+        auto value = T.init;
     move(value, dest);
 }
 @("emplaceCtor")

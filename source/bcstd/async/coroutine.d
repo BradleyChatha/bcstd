@@ -246,6 +246,7 @@ private void yieldImpl(CoroutineState endState)
     auto next = routine.callStack.removeAtTail(routine.callStack.length - 1);
     assert(next.state == CoroutineState.suspended, "Call stack routine is not in suspended state?");
     g_currentThreadRoutine = next;
+    next.state = CoroutineState.running;
     bcstdCoroutineSwap(routine, next);
 }
 

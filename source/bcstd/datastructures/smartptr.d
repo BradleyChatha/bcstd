@@ -479,7 +479,7 @@ struct TypedPtrBase(alias AllocT = SystemAllocator)
     {
         assert(!this.isNull, "This TypePtr is null.");
         assert(this._id == TypeIdOf!T, "Type mismatch. This TypedPtr does not store `"~T.stringof~"`");
-        return cast(T*)this._ptr;
+        return cast(inout(T)*)this._ptr;
     }
 }
 alias TypedPtr = TypedPtrBase!();
