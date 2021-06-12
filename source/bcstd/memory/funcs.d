@@ -37,6 +37,108 @@ unittest
     assert(dest[] == source);
 }
 
+private struct ByteSplitInfo
+{
+    size_t xmms;
+    size_t longs;
+    size_t ints;
+    size_t shorts;
+    size_t bytes;
+
+    private static struct xmm
+    {
+        ubyte[16] _;
+    }
+
+    static ByteSplitInfo of(alias T)()
+    {
+        import bcstd.meta : AliasSeq;
+
+        auto size = T.sizeof;
+        ByteSplitInfo info;
+
+        size_t result;
+        
+        static foreach(type; AliasSeq!(xmm, long, int, short, byte))
+        {
+            result = size / type.sizeof;
+            if(result > 0)
+            {
+                mixin("info."~type.stringof~"s = result;");
+                size -= type.sizeof * result;
+            }
+        }
+
+        return info;
+    }
+    @("ByteSplitInfo.of")
+    unittest
+    {
+        static struct S(size_t size)
+        {
+            ubyte[size] s;
+        }
+
+        assert(ByteSplitInfo.of!long  == ByteSplitInfo(0, 1));
+        assert(ByteSplitInfo.of!int   == ByteSplitInfo(0, 0, 1));
+        assert(ByteSplitInfo.of!short == ByteSplitInfo(0, 0, 0, 1));
+        assert(ByteSplitInfo.of!byte  == ByteSplitInfo(0, 0, 0, 0, 1));
+
+        assert(ByteSplitInfo.of!(S!3)  == ByteSplitInfo(0, 0, 0, 1, 1));
+        assert(ByteSplitInfo.of!(S!3)  == ByteSplitInfo(0, 0, 0, 1, 1));
+        assert(ByteSplitInfo.of!(S!6)  == ByteSplitInfo(0, 0, 1, 1, 0));
+        assert(ByteSplitInfo.of!(S!13) == ByteSplitInfo(0, 1, 1, 0, 1));
+    }
+}
+
+// This is faster than a normal byte-by-byte memcpy. It *should* be faster than the vectoirsed version LDC produces as well
+// as we don't have to handle every different possible situation.
+void memcpySmart(alias T)(scope T* source, scope T* dest)
+{
+    // LDC -O3 knows how to alias these properly, so no extra instructions are made.
+    auto source8  = cast(ubyte*)source;
+    auto source16 = cast(ushort*)source;
+    auto source32 = cast(uint*)source;
+    auto source64 = cast(ulong*)source;
+    auto dest8    = cast(ubyte*)dest;
+    auto dest16   = cast(ushort*)dest;
+    auto dest32   = cast(uint*)dest;
+    auto dest64   = cast(ulong*)dest;
+
+    enum info = ByteSplitInfo.of!T;
+    static foreach(i; 0..info.xmms)
+    {
+        static if(i == 0)
+        asm @nogc nothrow pure
+        {
+            mov RAX, [source];
+            mov RCX, [dest];
+        }
+
+        asm @nogc nothrow pure
+        {
+            movdqu XMM1, [RAX+i*16];
+            movdqu [RCX+i*16], XMM1;
+        }
+    }
+
+    enum offset64 = info.xmms * 2;
+    static foreach(i; 0..info.longs)
+        dest64[i+offset64] = source64[i+offset64];
+
+    enum offset32 = info.longs * 2;
+    static foreach(i; 0..info.ints)
+        dest32[i+offset32] = source32[i+offset32];
+
+    enum offset16 = offset32 + (info.ints * 2);
+    static foreach(i; 0..info.shorts)
+        dest16[i+offset16] = source16[i+offset16];
+
+    enum offset8 = offset16 + (info.shorts * 2);
+    static foreach(i; 0..info.bytes)
+        dest8[i+offset8] = source8[i+offset8];
+}
+
 @nogc nothrow
 void memset(scope void* dest, ubyte value, size_t amount)
 {
@@ -54,19 +156,20 @@ unittest
 }
 
 @nogc nothrow
-void move(T, bool makeSourceInit = true)(scope ref T source, scope return ref T dest)
+void move(T, bool makeSourceInit = true, bool destroyDest = true)(scope ref T source, scope return ref T dest)
 {
     enum MoveAction = UdaOrDefault!(OnMove, T, OnMove.allow);
     static assert(MoveAction != OnMove.forbid, "Type `"~T.stringof~"` explicitly forbids being moved.");
 
-    static if(__traits(compiles, T.init.__xdtor()) && !isPointer!T)
+    static if(destroyDest && __traits(compiles, T.init.__xdtor()) && !isPointer!T)
         dest.__xdtor();
-    memcpy(&source, &dest, T.sizeof);
+    memcpySmart!T(&source, &dest);
+    //memcpy(&source, &dest, T.sizeof);
 
     static if(makeSourceInit)
     {
         auto init = T.init;
-        memcpy(&init, &source, T.sizeof);
+        memcpySmart!T(&init, &source);
     }
     
     // TODO: Apply OnMove actions for struct members as well, as members' `OnMove` udas aren't respected like this.

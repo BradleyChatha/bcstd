@@ -76,6 +76,9 @@ if(ctassert!(isSimpleAllocator!AllocT, "Type `"~AllocT.stringof~"` is not an all
         return slice;
     }
 
+    // TODO: Check if reallocation causes the base ptr to change, and if it has, perform an internal pointer update
+    //       on any types marked with `OnMove.callUpdateInternalPointers`.
+
     MaybeNullSlice!(T, Tag) growArray(T)(const size_t to, scope auto ref NotNullSlice!(T, Tag) slice)
     {
         if(to == slice.length)

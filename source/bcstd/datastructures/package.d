@@ -6,4 +6,5 @@ public import
     bcstd.datastructures.sumtype,
     bcstd.datastructures.result,
     bcstd.datastructures.linkedlist,
-    bcstd.datastructures.smartptr;
+    bcstd.datastructures.smartptr,
+    bcstd.datastructures.hashstuff;

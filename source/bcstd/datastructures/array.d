@@ -117,7 +117,7 @@ struct Array(alias T, alias AllocT = SystemAllocator, alias Grow = DefaultGrowth
     }
 
     @safe size_t opDollar() const pure { return this.length; }
-    @safe inout(T)[] opIndex() inout pure { return this._slice; }
+    @safe inout(T)[] opIndex() inout pure { return this.length == 0 ? null : this._slice[0..this._inUse]; }
 
     @safe
     ref inout(T) opIndex(size_t index) inout pure
