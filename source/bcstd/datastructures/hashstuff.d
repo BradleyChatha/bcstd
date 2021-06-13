@@ -46,11 +46,13 @@ struct RobinHoodHashMap(
 
     void put()(auto ref KeyT key, auto ref ValueT value)
     {
-        bool alreadyExists;
+        bool alreadyExists, wasSwap, wasSwapAtAnyPoint;
+        KeyT currKey, _;
+        ValueT currValue, __;
         if(
             this._array.length == 0
          || ((cast(double)this._length / this._fakeCapacity) >= maxLoadFactor)
-         || !this.putInto(this._array, key, value, alreadyExists) // failed insertion
+         || !this.putInto(this._array, key, value, alreadyExists, wasSwap, currKey, currValue) // failed insertion
         )
         {
             import core.stdc.math : log2; // As if I know how to write this myself ;^)
@@ -71,9 +73,10 @@ struct RobinHoodHashMap(
                 size_t insertCount;
                 foreach(ref node; this._array)
                 {
+                    bool ___;
                     if(node.distance == ubyte.max)
                         continue;
-                    if(!this.putInto(nextArray, node.key, node.value, alreadyExists))
+                    if(!this.putInto(nextArray, node.key, node.value, alreadyExists, ___, _, __))
                     {
                         reloop = true;
                         break;
@@ -81,7 +84,18 @@ struct RobinHoodHashMap(
                     if(++insertCount == oldLength)
                         break;
                 }
-                if(reloop || !this.putInto(nextArray, key, value, alreadyExists))
+                
+                if(reloop)
+                {
+                    emplaceInit(nextArray);
+                    continue;
+                }
+
+                const result = (wasSwap || wasSwapAtAnyPoint)
+                    ? this.putInto(nextArray, currKey, currValue, alreadyExists, wasSwap, currKey, currValue)
+                    : this.putInto(nextArray, key, value, alreadyExists, wasSwap, currKey, currValue);
+                wasSwapAtAnyPoint = wasSwapAtAnyPoint || wasSwap;
+                if(!result)
                 {
                     emplaceInit(nextArray);
                     continue;
@@ -244,16 +258,28 @@ struct RobinHoodHashMap(
         return null;
     }
     
-    private bool putInto()(ref typeof(_array) array, auto ref KeyT key, auto ref ValueT value, out bool alreadyExists)
+    private bool putInto()(
+        ref typeof(_array) array, 
+        auto ref KeyT key, 
+        auto ref ValueT value, 
+        out bool alreadyExists,
+        out bool wasSwap,
+        ref KeyT currKey,
+        ref ValueT currValue
+    )
     {
-        KeyT   currKey   = key;
-        ValueT currValue = value;
+        currKey   = key;
+        currValue = value;
 
         const index = toHashToPrimeIndex!(Hasher, KeyT)(key, this._primeIndex-1);
-
-        for(ubyte distance = 0; distance < this._probeLimit; distance++)
+        ubyte distance = 255;
+        for(size_t i = index; i < array.length; i++)
         {
-            auto nodePtr = &array[index+distance];
+            distance++;
+            if(distance >= this._probeLimit)
+                break;
+
+            auto nodePtr = &array[i];
 
             if(nodePtr.distance == ubyte.max)
             {
@@ -271,6 +297,8 @@ struct RobinHoodHashMap(
             }
             else if(nodePtr.distance < distance)
             {
+                wasSwap = true;
+
                 KeyT   tempKey;
                 ValueT tempValue;
                 ubyte  tempDistance;
@@ -392,9 +420,13 @@ unittest
 @("RobinHoodHashMap - 10_000 ints")
 unittest
 {
+    enum AMOUNT = 10_000;
     RobinHoodHashMap!(int, int) h;
-    foreach(i; 0..10_000)
+    foreach(i; 0..AMOUNT)
         h.put(i, i);
+    assert(h.length == AMOUNT);
+    foreach(i; 0..AMOUNT)
+        h.getAt(i);
 }
 
 @safe @nogc 

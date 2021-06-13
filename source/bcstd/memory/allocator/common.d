@@ -2,7 +2,7 @@ module bcstd.memory.allocator.common;
 
 import bcstd.meta.ctassert : ctassert;
 import bcstd.memory.ptr : MaybeNullPtr, MaybeNullSlice, NotNullSlice, maybeNull, NotNullPtr, notNull;
-import bcstd.memory.funcs : emplaceCtor, dtorSliceIfNeeded;
+import bcstd.memory.funcs : emplaceCtor, dtorSliceIfNeeded, emplaceInit;
 import bcstd.meta.traits : isInstanceOf;
 
 enum isSimpleAllocator(alias T) =
@@ -85,11 +85,17 @@ if(ctassert!(isSimpleAllocator!AllocT, "Type `"~AllocT.stringof~"` is not an all
             return slice.maybeNull;
 
         assert(to > slice.length, "`to` is not greater or equal to the given slice.");
+        const oldLen = slice.length;
+        const diff = to - slice.length;
         auto ptr = instance.realloc!T(slice, to);
         if(ptr is null)
             return typeof(return)(null);
         
-        // TODO: Fill empty space with T.init ONLY if T.init is not completely zeroed out.
+        static if(!__traits(isZeroInit, T))
+        {
+            foreach(i; 0..diff)
+                emplaceInit(ptr[oldLen+i]);
+        }
         return typeof(return)(ptr[0..to]);
     }
 
