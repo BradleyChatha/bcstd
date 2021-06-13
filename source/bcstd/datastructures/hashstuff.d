@@ -380,6 +380,13 @@ unittest
     h.__xdtor();
     assert(pblit == dtor);
 
+    RobinHoodHashMap!(int, S) his;
+    pblit = dtor = 0;
+    foreach(i; 0..10_000)
+        his.put(i, s);
+    his.__xdtor();
+    assert(pblit == dtor);
+
     RobinHoodHashMap!(string, int) hi;
 
     hi.put("one", 0);
