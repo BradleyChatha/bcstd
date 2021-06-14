@@ -183,19 +183,24 @@ enum isInstanceOf(alias S, alias T) = is(T == S!Args, Args...);
 
 template BitmaskUda(alias Uda, alias T)
 {
-    Uda get()
+    static if(__traits(compiles, __traits(getAttributes, T)))
     {
-        Uda value;
-
-        static foreach(uda; __traits(getAttributes, T))
+        Uda get()
         {
-            static if(__traits(compiles, typeof(uda)) && is(typeof(uda) == Uda))
-                value |= uda;
-        }
+            Uda value;
 
-        return value;
+            static foreach(uda; __traits(getAttributes, T))
+            {
+                static if(__traits(compiles, typeof(uda)) && is(typeof(uda) == Uda))
+                    value |= uda;
+            }
+
+            return value;
+        }
+        enum BitmaskUda = get();
     }
-    enum BitmaskUda = get();
+    else
+        enum BitmaskUda = Uda.init;
 }
 ///
 @("BitmaskUda")

@@ -6,7 +6,7 @@ import core.bitop : rol;
 // Taken from https://github.com/skarupke/flat_hash_map/blob/master/flat_hash_map.hpp#L1124
 // Credit to skarupe under an unknown license.
 immutable PrimeNumberForSizeLookup = [
-    2UL, 3UL, 5UL, 7UL, 11UL, 13UL, 17UL, 23UL, 29UL, 37UL, 47UL,
+    2UL, 13UL, 17UL, 23UL, 29UL, 37UL, 47UL,
     59UL, 73UL, 97UL, 127UL, 151UL, 197UL, 251UL, 313UL, 397UL,
     499UL, 631UL, 797UL, 1009UL, 1259UL, 1597UL, 2011UL, 2539UL,
     3203UL, 4027UL, 5087UL, 6421UL, 8089UL, 10193UL, 12853UL, 16193UL,

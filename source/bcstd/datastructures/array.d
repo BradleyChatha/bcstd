@@ -170,8 +170,8 @@ struct Array(alias T, alias AllocT = SystemAllocator, alias Grow = DefaultGrowth
         }
         else
         {
-            foreach(ref item; this._slice[this._inUse..newAmount])
-                emplaceInit(item);            
+            T init = T.init;
+            this._slice[this._inUse..newAmount] = init;
         }
 
         this._inUse = newAmount;

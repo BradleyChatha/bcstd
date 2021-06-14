@@ -1,6 +1,7 @@
 module bcstd.datastructures.hashstuff;
 
-import bcstd.memory, bcstd.data, bcstd.datastructures.array;
+import bcstd.memory, bcstd.data, bcstd.datastructures.array, bcstd.datastructures.growth, bcstd.algorithm.common,
+       bcstd.meta.traits;
 
 struct KeyValuePair(alias KeyT, alias ValueT)
 {
@@ -24,6 +25,12 @@ struct RobinHoodHashMap(
 {
     static assert(maxLoadFactor > 0, "The load factor cannot be 0 or negative.");
 
+    // Moving things we don't need to move is *suuuper* slow, so types can explicitly say if they prefer being moved.
+    enum KeyOptimise   = BitmaskUda!(OptimisationHint, KeyT);
+    enum ValueOptimise = BitmaskUda!(OptimisationHint, ValueT);
+    enum MoveKey       = (KeyOptimise & OptimisationHint.preferMoveOverCopy) > 0;
+    enum MoveValue     = (ValueOptimise & OptimisationHint.preferMoveOverCopy) > 0;
+
     static struct Node
     {
         KeyT key;
@@ -33,6 +40,7 @@ struct RobinHoodHashMap(
 
     private Array!(Node, AllocT) _array;
     private size_t _fakeCapacity;
+    private size_t _fakeMaxLoadCapacity;
     private size_t _length;
     private ubyte  _primeIndex;
     private ubyte  _probeLimit;
@@ -44,18 +52,16 @@ struct RobinHoodHashMap(
         this._array = typeof(_array)(alloc);
     }
 
-    void put()(auto ref KeyT key, auto ref ValueT value)
+    void put()(KeyT key, ValueT value)
     {
         bool alreadyExists, wasSwap, wasSwapAtAnyPoint;
         KeyT currKey, _;
         ValueT currValue, __;
-        if(
-            this._array.length == 0
-         || ((cast(double)this._length / this._fakeCapacity) >= maxLoadFactor)
+        if(this._length >= this._fakeMaxLoadCapacity
          || !this.putInto(this._array, key, value, alreadyExists, wasSwap, currKey, currValue) // failed insertion
         )
         {
-            import core.stdc.math : log2; // As if I know how to write this myself ;^)
+            import core.stdc.math : log2, ceil; // As if I know how to write this myself ;^)
 
             typeof(_array) nextArray;
             const oldLength = this._length;
@@ -64,16 +70,17 @@ struct RobinHoodHashMap(
                 const nextPrime    = nextPrimeSize(this._primeIndex);
                 const nextLimit    = cast(ubyte)log2(cast(double)nextPrime);
                 const nextRealSize = nextPrime + nextLimit;
-                nextArray.length   = nextRealSize;
-
+                const nextMaxSize  = cast(size_t)(ceil(cast(double)nextPrime * maxLoadFactor));
                 this._probeLimit   = nextLimit;
                 this._fakeCapacity = nextPrime;
+                this._fakeMaxLoadCapacity = nextMaxSize;
+                nextArray.length = nextRealSize;
 
-                bool reloop = false;
+            bool reloop = false;
+                bool ___;
                 size_t insertCount;
                 foreach(ref node; this._array)
                 {
-                    bool ___;
                     if(node.distance == ubyte.max)
                         continue;
                     if(!this.putInto(nextArray, node.key, node.value, alreadyExists, ___, _, __))
@@ -150,20 +157,20 @@ struct RobinHoodHashMap(
 
     bool containsKey()(auto ref KeyT key) const
     {
-        return this.getPtrUnsafeAt(key) !is null;
+        return this.getNodeAt(key) !is null;
     }
-
+    
     inout(ValueT) getAt()(auto ref KeyT key) inout
     {
-        auto result = this.getPtrUnsafeAt(key);
+        auto result = this.getNodeAt(key);
         assert(result !is null, "Could not find key.");
-        return *result;
+        return result.value;
     }
 
     inout(ValueT) getAtOrDefault()(auto ref KeyT key, auto ref scope return ValueT default_ = ValueT.init) inout
     {
-        auto result = this.getPtrUnsafeAt(key);
-        return (result) ? *result : default_;
+        auto result = this.getNodeAt(key);
+        return (result) ? result.value : default_;
     }
 
     inout(ValueT)* getPtrUnsafeAt()(auto ref KeyT key) inout
@@ -248,16 +255,18 @@ struct RobinHoodHashMap(
     {
         if(this._primeIndex == 0)
             return null;
-        const index = toHashToPrimeIndex!(Hasher, KeyT)(key, this._primeIndex - 1);
+        const index  = toHashToPrimeIndex!(Hasher, KeyT)(key, this._primeIndex - 1);
+        auto nodePtr = &this._array[index]; // bypass bounds checking, as our overallocation should ensure this is always in bounds.
         foreach(i; 0..this._probeLimit)
         {
-            auto ptr = &this._array[index+i];
+            auto ptr = &nodePtr[i];
             if(ptr.key == key)
                 return ptr;
         }
         return null;
     }
     
+    // Interestingly, LDC automatically inlines this function when optimising o.o
     private bool putInto()(
         ref typeof(_array) array, 
         auto ref KeyT key, 
@@ -271,28 +280,23 @@ struct RobinHoodHashMap(
         currKey   = key;
         currValue = value;
 
-        const index = toHashToPrimeIndex!(Hasher, KeyT)(key, this._primeIndex-1);
+        const index    = toHashToPrimeIndex!(Hasher, KeyT)(key, this._primeIndex-1);
+        const length   = array.length;
+        auto arrayPtr  = array[].ptr; // bypass bounds checking as this should in theory be completely @safe to access.
         ubyte distance = 255;
-        for(size_t i = index; i < array.length; i++)
+        for(size_t i = index; i < length; i++)
         {
             distance++;
             if(distance >= this._probeLimit)
                 break;
 
-            auto nodePtr = &array[i];
+            auto nodePtr = &arrayPtr[i];
 
             if(nodePtr.distance == ubyte.max)
             {
-                move(currKey, nodePtr.key);
-                move(currValue, nodePtr.value);
+                static if(MoveKey)   move(currKey, nodePtr.key);     else nodePtr.key = currKey;
+                static if(MoveValue) move(currValue, nodePtr.value); else nodePtr.value = currValue;
                 nodePtr.distance = distance;
-                return true;
-            }
-            else if(nodePtr.key == currKey)
-            {
-                move(currKey, nodePtr.key); // So things stay predictable in terms of what OnMove and such do.
-                move(currValue, nodePtr.value);
-                alreadyExists = true;
                 return true;
             }
             else if(nodePtr.distance < distance)
@@ -303,17 +307,24 @@ struct RobinHoodHashMap(
                 ValueT tempValue;
                 ubyte  tempDistance;
 
-                move(nodePtr.key, tempKey);
-                move(nodePtr.value, tempValue);
+                static if(MoveKey)   move(nodePtr.key, tempKey);     else tempKey = nodePtr.key;
+                static if(MoveValue) move(nodePtr.value, tempValue); else tempValue = nodePtr.value;
                 tempDistance = nodePtr.distance;
 
-                move(currKey, nodePtr.key);
-                move(currValue, nodePtr.value);
+                static if(MoveKey)   move(currKey, nodePtr.key);     else nodePtr.key = currKey;
+                static if(MoveValue) move(currValue, nodePtr.value); else nodePtr.value = currValue;
                 nodePtr.distance = distance;
 
-                move(tempKey, currKey);
-                move(tempValue, currValue);
+                static if(MoveKey)   move(tempKey, currKey);     else currKey   = tempKey;
+                static if(MoveValue) move(tempValue, currValue); else currValue = tempValue;
                 distance = tempDistance;
+            }
+            else if(nodePtr.key == currKey)
+            {
+                static if(MoveKey)   move(currKey, nodePtr.key); // So things stay predictable in terms of what OnMove and such do.
+                static if(MoveValue) move(currValue, nodePtr.value); else nodePtr.value = currValue;
+                alreadyExists = true;
+                return true;
             }
         }
 
@@ -325,6 +336,7 @@ unittest
 {
     uint pblit;
     uint dtor;
+    //@(OptimisationHint.preferMoveOverCopy)
     static struct S
     {
         @nogc nothrow:
@@ -351,8 +363,7 @@ unittest
     assert(h.length == 1);
     assert(h.containsKey("test"));
     assert(!h.containsKey("tesT"));
-    assert(pblit == 1);
-    assert(dtor == 0);
+    assert(pblit == dtor+1);
     h.__xdtor();
     assert(pblit == dtor);
 
@@ -361,8 +372,7 @@ unittest
     h.put("test", s);
     h.put("test", s);
     assert(h.length == 1);
-    assert(pblit == 2);
-    assert(dtor  == 1);
+    assert(pblit == dtor+1);
     h.put("test2", s);
     assert(h.length == 2);
     assert(pblit == dtor+2);
@@ -430,7 +440,13 @@ unittest
     enum AMOUNT = 10_000;
     RobinHoodHashMap!(int, int) h;
     foreach(i; 0..AMOUNT)
+    {
+        if(h.length != i)
+            assert(false);
+        if(i == 0x027d)
+            int d = 0;
         h.put(i, i);
+    }
     assert(h.length == AMOUNT);
     foreach(i; 0..AMOUNT)
         h.getAt(i);

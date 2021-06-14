@@ -140,7 +140,7 @@ void memcpySmart(alias T)(scope T* source, scope T* dest)
 }
 
 @nogc nothrow
-void memset(scope void* dest, ubyte value, size_t amount)
+void memset(ubyte value, scope void* dest, size_t amount)
 {
     auto destBytes = cast(ubyte*)dest;
     for(size_t i = 0; i < amount; i++)
@@ -151,7 +151,7 @@ void memset(scope void* dest, ubyte value, size_t amount)
 unittest
 {
     ubyte[5] dest;
-    memset(dest.ptr, 128, 5);
+    memset(128, dest.ptr, 5);
     assert(dest == [128, 128, 128, 128, 128]);
 }
 

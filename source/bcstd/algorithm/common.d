@@ -31,7 +31,8 @@ enum OptimisationHint
 {
     none = 0,
 
-    rangeFasterThanIndex = 1 << 0
+    rangeFasterThanIndex = 1 << 0,
+    preferMoveOverCopy = 1 << 1
 }
 
 pragma(inline, true)

@@ -93,8 +93,8 @@ if(ctassert!(isSimpleAllocator!AllocT, "Type `"~AllocT.stringof~"` is not an all
         
         static if(!__traits(isZeroInit, T))
         {
-            foreach(i; 0..diff)
-                emplaceInit(ptr[oldLen+i]);
+            T init = T.init;
+            ptr[oldLen..oldLen+diff] = init;
         }
         return typeof(return)(ptr[0..to]);
     }
