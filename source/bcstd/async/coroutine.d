@@ -350,7 +350,6 @@ unittest
     {
     }
 
-    auto main  = bcstdCreateMainCoroutine();
     auto stack = bcstdCreateStandaloneCoroutineStack();
     auto co    = bcstdCreateCoroutine(&routine, stack, null);
     bcstdDestroyCoroutine(co);
@@ -365,7 +364,6 @@ unittest
         bcstdExitCoroutine();
     }
 
-    auto main  = bcstdCreateMainCoroutine();
     auto stack = bcstdCreateStandaloneCoroutineStack();
     auto co    = bcstdCreateCoroutine(&routine, stack, null);
     bcstdStartCoroutine(co);
@@ -380,7 +378,6 @@ unittest
     {
     }
 
-    auto main  = bcstdCreateMainCoroutine();
     auto stack = bcstdCreateStandaloneCoroutineStack();
     auto co    = bcstdCreateCoroutine(&routine, stack, null);
     bcstdStartCoroutine(co);
@@ -400,7 +397,6 @@ unittest
         num++;
     }
 
-    auto main  = bcstdCreateMainCoroutine();
     auto stack = bcstdCreateStandaloneCoroutineStack();
     auto co    = bcstdCreateCoroutine(&routine, stack, null);
 
@@ -425,7 +421,6 @@ unittest
         *ptr = 200;
     }
 
-    auto main  = bcstdCreateMainCoroutine();
     auto stack = bcstdCreateStandaloneCoroutineStack();
     auto co    = bcstdCreateCoroutine(&routine, stack, &num);
 
@@ -447,7 +442,6 @@ unittest
         assert(ptr !is null);
         *ptr += 1;
     }
-    auto main  = bcstdCreateMainCoroutine();
     auto stack = bcstdCreateStandaloneCoroutineStack();
     auto co    = bcstdCreateCoroutine(&routine, stack, &num);
 

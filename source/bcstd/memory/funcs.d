@@ -93,50 +93,59 @@ private struct ByteSplitInfo
 
 // This is faster than a normal byte-by-byte memcpy. It *should* be faster than the vectoirsed version LDC produces as well
 // as we don't have to handle every different possible situation.
+pragma(inline, true)
 void memcpySmart(alias T)(scope T* source, scope T* dest)
 {
-    // LDC -O3 knows how to alias these properly, so no extra instructions are made.
-    auto source8  = cast(ubyte*)source;
-    auto source16 = cast(ushort*)source;
-    auto source32 = cast(uint*)source;
-    auto source64 = cast(ulong*)source;
-    auto dest8    = cast(ubyte*)dest;
-    auto dest16   = cast(ushort*)dest;
-    auto dest32   = cast(uint*)dest;
-    auto dest64   = cast(ulong*)dest;
-
-    enum info = ByteSplitInfo.of!T;
-    static foreach(i; 0..info.xmms)
+    static if(!is(T == struct) || (T.sizeof <= 64 && __traits(isPOD, T)))
     {
-        static if(i == 0)
-        asm @nogc nothrow pure
-        {
-            mov RAX, [source];
-            mov RCX, [dest];
-        }
-
-        asm @nogc nothrow pure
-        {
-            movdqu XMM1, [RAX+i*16];
-            movdqu [RCX+i*16], XMM1;
-        }
+        *dest = *source;
     }
+    else
+    {
+        // LDC -O3 knows how to alias these properly, so no extra instructions are made.
+        auto source8  = cast(ubyte*)source;
+        auto source16 = cast(ushort*)source;
+        auto source32 = cast(uint*)source;
+        auto source64 = cast(ulong*)source;
+        auto dest8    = cast(ubyte*)dest;
+        auto dest16   = cast(ushort*)dest;
+        auto dest32   = cast(uint*)dest;
+        auto dest64   = cast(ulong*)dest;
 
-    enum offset64 = info.xmms * 2;
-    static foreach(i; 0..info.longs)
-        dest64[i+offset64] = source64[i+offset64];
+        enum info = ByteSplitInfo.of!T;
+        static foreach(i; 0..info.xmms)
+        {
+            static if(i == 0)
+            asm @nogc nothrow pure
+            {
+                mov RAX, [source];
+                mov RCX, [dest];
+            }
 
-    enum offset32 = info.longs * 2;
-    static foreach(i; 0..info.ints)
-        dest32[i+offset32] = source32[i+offset32];
+            asm @nogc nothrow pure
+            {
+                movdqu XMM1, [RAX+i*16];
+                movdqu [RCX+i*16], XMM1;
+            }
+        }
 
-    enum offset16 = offset32 + (info.ints * 2);
-    static foreach(i; 0..info.shorts)
-        dest16[i+offset16] = source16[i+offset16];
+        enum offset64 = info.xmms * 2;
+        static foreach(i; 0..info.longs)
+            dest64[i+offset64] = source64[i+offset64];
 
-    enum offset8 = offset16 + (info.shorts * 2);
-    static foreach(i; 0..info.bytes)
-        dest8[i+offset8] = source8[i+offset8];
+        enum offset32 = info.longs * 2;
+        static foreach(i; 0..info.ints)
+            dest32[i+offset32] = source32[i+offset32];
+
+        enum offset16 = offset32 + (info.ints * 2);
+        static foreach(i; 0..info.shorts)
+            dest16[i+offset16] = source16[i+offset16];
+
+        enum offset8 = offset16 + (info.shorts * 2);
+        static foreach(i; 0..info.bytes)
+            dest8[i+offset8] = source8[i+offset8];
+        return;
+    }
 }
 
 @nogc nothrow
@@ -155,7 +164,7 @@ unittest
     assert(dest == [128, 128, 128, 128, 128]);
 }
 
-@nogc nothrow
+@nogc nothrow pragma(inline, true)
 void move(T, bool makeSourceInit = true, bool destroyDest = true)(scope ref T source, scope return ref T dest)
 {
     enum MoveAction = UdaOrDefault!(OnMove, T, OnMove.allow);
@@ -164,7 +173,6 @@ void move(T, bool makeSourceInit = true, bool destroyDest = true)(scope ref T so
     static if(destroyDest && __traits(compiles, T.init.__xdtor()) && !isPointer!T)
         dest.__xdtor();
     memcpySmart!T(&source, &dest);
-    //memcpy(&source, &dest, T.sizeof);
 
     static if(makeSourceInit)
     {

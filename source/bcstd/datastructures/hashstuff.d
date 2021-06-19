@@ -54,14 +54,14 @@ struct RobinHoodHashMap(
 
     void put()(KeyT key, ValueT value)
     {
-        bool alreadyExists, wasSwap, wasSwapAtAnyPoint;
+        bool alreadyExists, wasSwap, wasSwapAtAnyPoint, ___;
         KeyT currKey, _;
         ValueT currValue, __;
         if(this._length >= this._fakeMaxLoadCapacity
          || !this.putInto(this._array, key, value, alreadyExists, wasSwap, currKey, currValue) // failed insertion
         )
         {
-            import core.stdc.math : log2, ceil; // As if I know how to write this myself ;^)
+            import core.stdc.math : log2, ceil; // As if I know how to write log2 myself ;^)
 
             typeof(_array) nextArray;
             const oldLength = this._length;
@@ -76,8 +76,7 @@ struct RobinHoodHashMap(
                 this._fakeMaxLoadCapacity = nextMaxSize;
                 nextArray.length = nextRealSize;
 
-            bool reloop = false;
-                bool ___;
+                bool reloop = false;
                 size_t insertCount;
                 foreach(ref node; this._array)
                 {
