@@ -281,7 +281,7 @@ struct StackContext
 pragma(inline, true)
 size_t align16(size_t value) pure
 {
-    return value & ~16;
+    return (value + 16) & ~15;
 }
 
 version(Windows)
