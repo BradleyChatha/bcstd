@@ -1,7 +1,7 @@
 module bcstd.datastructures.linkedlist;
 
 import core.exception : onOutOfMemoryError;
-import bcstd.memory : AllocatorWrapperOf, SystemAllocator, move;
+import bcstd.memory;
 import bcstd.memory.ptr;
 import bcstd.algorithm : OptimisationHint;
 
@@ -67,6 +67,29 @@ struct LinkedList(alias T, alias AllocT = SystemAllocator)
     {
         foreach(ref value; args)
             this.putTail(value);        
+    }
+
+    void moveTail()(auto ref T value)
+    {        
+        auto node = this._alloc.make!Node();
+        if(node is null)
+            onOutOfMemoryError(null);
+        move(value, node.value);
+
+        if(this._head is null)
+        {
+            this._head = node;
+            this._tail = node;
+        }
+        else
+        {
+            auto tail = this._tail;
+            this._tail.next = node;
+            node.prev = tail;
+            this._tail = node;
+        }
+
+        this._length++;
     }
 
     void putHead()(auto ref T value)

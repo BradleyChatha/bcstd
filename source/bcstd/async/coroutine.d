@@ -1,8 +1,10 @@
 module bcstd.async.coroutine;
 
 // NOTE: This module doesn't go through the normal allocators for stack allocation, since this is bit of a special case in terms of memory allocation and management.
+import core.exception : onOutOfMemoryError;
 import bcstd.datastructures : LinkedList, SumType;
-import bcstd.memory : g_alloc;
+import bcstd.memory : g_alloc, PageAllocator, PageAllocation;
+import bcstd.util.maths : alignTo;
 
 enum DEFAULT_COROUTINE_STACK_SIZE = 1024 * 10;
 
@@ -115,12 +117,7 @@ CoroutineStack bcstdCreateStandaloneCoroutineStack(
 void bcstdDestroyCoroutineStack(ref CoroutineStack stack)
 {
     releaseMemoryResources(stack);
-    //stack = CoroutineStack.init;
-}
-
-Coroutine* bcstdCreateMainCoroutine()
-{
-    return &g_currentThreadMainRoutine;
+    stack = CoroutineStack.init;
 }
 
 Coroutine* bcstdCreateCoroutine(
@@ -265,7 +262,7 @@ private void releaseMemoryResources(Coroutine* routine, bool isForReset = false)
 private void releaseMemoryResources(CoroutineStack stack)
 {
     stack.visit!(
-        (StandaloneStack* standalone) => pageFree(standalone.context.base)
+        (StandaloneStack* standalone) => pageFree(standalone.context.pages)
     )(stack);
 }
 
@@ -276,72 +273,34 @@ struct StackContext
     ubyte* base;
     ubyte* alignedTop;
     ubyte* alignedBot;
+    PageAllocation pages;
 }
 
-pragma(inline, true)
-size_t align16(size_t value) pure
+StackContext pageAlloc(size_t minSize, bool useGuardPage)
 {
-    return (value + (16 * (value % 16 > 0))) & ~15;
+    StackContext context;
+
+    auto alloc = PageAllocator.allocInBytesToPages(minSize, useGuardPage);
+    
+    context.base       = alloc.memory.ptr;
+    context.alignedBot = (alloc.memory.ptr + alloc.memory.length);
+    context.alignedTop = alloc.memory.ptr;
+
+    if(useGuardPage)
+        context.alignedTop += alloc.memory.length / alloc.pageCount;
+
+    context.alignedBot -= 40; // Win64 ABI requires a 32 byte shadow space, and we need another 8 bytes for the default return address.
+    context.alignedBot = cast(ubyte*)((cast(ulong)context.alignedBot).alignTo!16);
+    context.alignedTop = cast(ubyte*)((cast(ulong)context.alignedTop).alignTo!16);
+    context.pages      = alloc;
+
+    return context;
 }
-unittest
+
+void pageFree(PageAllocation pages)
 {
-    assert(align16(0) == 0);
-    assert(align16(16) == 16);
-    assert(align16(8) == 16);
-    assert(align16(31) == 32);
+    PageAllocator.free(pages);
 }
-
-version(Windows)
-{
-    import core.exception : onOutOfMemoryError;
-    import core.sys.windows.windows : SYSTEM_INFO, GetSystemInfo, VirtualAlloc, VirtualFree, VirtualProtect, MEM_COMMIT, MEM_RESERVE,
-                                      PAGE_GUARD, PAGE_READONLY, PAGE_READWRITE, DWORD, MEM_RELEASE;
-
-    StackContext pageAlloc(size_t minSize, bool useGuardPage)
-    {
-        StackContext context;
-        
-        SYSTEM_INFO info;
-        GetSystemInfo(&info);
-
-        auto totalSize = minSize;
-        if(totalSize < info.dwPageSize)
-            totalSize = info.dwPageSize;
-            
-        if(useGuardPage)
-            totalSize += info.dwPageSize;
-
-        auto ptr = VirtualAlloc(null, totalSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-        if(ptr is null)
-            onOutOfMemoryError(null);
-        context.base       = cast(ubyte*)ptr;
-        context.alignedBot = cast(ubyte*)(ptr + totalSize);
-        context.alignedTop = cast(ubyte*)(cast(ulong)ptr);
-
-        if(useGuardPage)
-        {
-            DWORD _;
-            const result = VirtualProtect(ptr, info.dwPageSize, PAGE_READONLY | PAGE_GUARD, &_);
-            if(!result)
-                assert(false, "VirtualProtect failed");
-            context.alignedTop += info.dwPageSize;
-        }
-
-        context.alignedBot -= 40; // Win64 ABI requires a 32 byte shadow space, and we need another 8 bytes for the default return address.
-        context.alignedBot = cast(ubyte*)((cast(ulong)context.alignedBot).align16);
-        context.alignedTop = cast(ubyte*)((cast(ulong)context.alignedTop).align16);
-
-        return context;
-    }
-
-    void pageFree(void* baseAddress)
-    {
-        const result = VirtualFree(baseAddress, 0, MEM_RELEASE);
-        if(!result)
-            assert(false, "VirtualFree failed.");
-    }
-}
-else static assert(false, "TODO for Linux");
 
 @("coroutine - Create and Free stack")
 unittest

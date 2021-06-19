@@ -45,8 +45,7 @@ struct Task
         static if(!is(T == typeof(null)))
             this._context.userContext = context.makeTyped;
 
-        // TODO: Stack customisation, and better stack management.
-        //       This is intentionally not freed to encourage me to get to it.
+        // TODO: Stack customisation. New PageAllocator means memory is managed a lot better now.
         auto stack = bcstdCreateStandaloneCoroutineStack();
         this._context.entryPoint = func;
         this._coroutine = bcstdCreateCoroutine(&coroutine, stack, &this._context);

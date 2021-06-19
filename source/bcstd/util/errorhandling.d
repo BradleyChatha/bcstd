@@ -34,6 +34,8 @@ template ValueOrError(alias ValueT)
 
     alias ValueOrError = SumType!U;
 }
+private struct MaybeErrorV{}
+alias MaybeError = ValueOrError!MaybeErrorV;
 
 BcError raise(string File = __FILE_FULL_PATH__, string Function = __PRETTY_FUNCTION__, string Module = __MODULE__, size_t Line = __LINE__)(
     bcstring message,
@@ -58,10 +60,18 @@ BcError raise(string File = __FILE_FULL_PATH__, string Function = __PRETTY_FUNCT
 
 auto assertNotError(ValueOrErrorT)(auto ref ValueOrErrorT valueOrError)
 {
-    if(valueOrError.contains!BcError)
-        throwError(valueOrError.get!BcError);
+    static if(is(ValueOrErrorT == MaybeError))
+    {
+        if(valueOrError == MaybeError.init && valueOrError.contains!(BcError))
+            throwError(valueOrError.get!BcError);
+    }
+    else
+    {
+        if(valueOrError.contains!BcError)
+            throwError(valueOrError.get!BcError);
 
-    return valueOrError.get!(typeof(ValueOrErrorT.Union.tupleof[0]));
+        return valueOrError.get!(typeof(ValueOrErrorT.Union.tupleof[0]));
+    }
 }
 ///
 @("assertNotError")

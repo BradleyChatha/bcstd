@@ -7,4 +7,5 @@ public import
     bcstd.datastructures.result,
     bcstd.datastructures.linkedlist,
     bcstd.datastructures.smartptr,
-    bcstd.datastructures.hashstuff;
+    bcstd.datastructures.hashstuff,
+    bcstd.datastructures.bitkeeper;
