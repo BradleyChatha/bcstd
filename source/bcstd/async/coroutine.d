@@ -281,7 +281,14 @@ struct StackContext
 pragma(inline, true)
 size_t align16(size_t value) pure
 {
-    return (value + 16) & ~15;
+    return (value + (16 * (value % 16 > 0))) & ~15;
+}
+unittest
+{
+    assert(align16(0) == 0);
+    assert(align16(16) == 16);
+    assert(align16(8) == 16);
+    assert(align16(31) == 32);
 }
 
 version(Windows)
