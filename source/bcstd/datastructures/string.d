@@ -17,14 +17,14 @@ struct String
             * Little endian is an important metric for why the pointer is put last, and x86_64 is a little endian architecture.
 
         For 'small' strings:
-            * Bits 0-22 contain the small string.
-            * Bit 23 contains the null terminator (since I want bcstd's strings to always provide one without reallocation needed - cheaper integration with C libs).
-            * Bit 24 contains the 'small' length, which will always be non-0 for small strings.
+            * Bytes 0-22 contain the small string.
+            * Byte 23 contains the null terminator (since I want bcstd's strings to always provide one without reallocation needed - cheaper integration with C libs).
+            * Byte 24 contains the 'small' length, which will always be non-0 for small strings.
 
         For 'big' strings:
-            * Bits 0-8 contain the length.
-            * Bits 8-16 contain the capacity.
-            * Bits 16-24 contain the allocated pointer.
+            * Bytes 0-8 contain the length.
+            * Bytes 8-16 contain the capacity.
+            * Bytes 16-24 contain the allocated pointer.
                 * Because of little endian, and the fact the upper 16-bits of a pointer will be 0, this sets the 'small' length to 0
                   which we can use as a flag to determine between small and big strings.
 
@@ -343,7 +343,6 @@ struct String
         {
             this._alloc.dispose(this._store.bigPtr); // set to null by .dispose
             this._store.smallString[] = '\0';
-            this._store.smallNullTerm = '\0';
             assert(this.isCompletelyEmpty, "?");
         }
     }
