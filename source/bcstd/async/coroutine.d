@@ -285,10 +285,6 @@ StackContext pageAlloc(size_t minSize, bool useGuardPage)
     context.base       = alloc.memory.ptr;
     context.alignedBot = (alloc.memory.ptr + alloc.memory.length);
     context.alignedTop = alloc.memory.ptr;
-
-    if(useGuardPage)
-        context.alignedTop += alloc.memory.length / alloc.pageCount;
-
     context.alignedBot -= 40; // Win64 ABI requires a 32 byte shadow space, and we need another 8 bytes for the default return address.
     context.alignedBot = cast(ubyte*)((cast(ulong)context.alignedBot).alignTo!16);
     context.alignedTop = cast(ubyte*)((cast(ulong)context.alignedTop).alignTo!16);

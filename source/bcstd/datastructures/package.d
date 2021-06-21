@@ -8,4 +8,5 @@ public import
     bcstd.datastructures.linkedlist,
     bcstd.datastructures.smartptr,
     bcstd.datastructures.hashstuff,
-    bcstd.datastructures.bitkeeper;
+    bcstd.datastructures.bitkeeper,
+    bcstd.datastructures.string;
