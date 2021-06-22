@@ -23,7 +23,7 @@ struct SimpleResult(T)
         BcError error;
     }
 
-    private bool _isValid;
+    private bool _isValid = is(T == void);
     private SumType!ValueOrError _value;
 
     static if(!is(T == void))

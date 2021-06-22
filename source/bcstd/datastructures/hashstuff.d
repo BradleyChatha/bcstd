@@ -169,7 +169,7 @@ struct RobinHoodHashMap(
     inout(ValueT) getAtOrDefault()(auto ref KeyT key, auto ref scope return ValueT default_ = ValueT.init) inout
     {
         auto result = this.getNodeAt(key);
-        return (result) ? result.value : default_;
+        return (result) ? result.value : cast(inout)default_;
     }
 
     inout(ValueT)* getPtrUnsafeAt()(auto ref KeyT key) inout

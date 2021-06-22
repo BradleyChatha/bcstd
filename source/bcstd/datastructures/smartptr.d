@@ -2,7 +2,7 @@ module bcstd.datastructures.smartptr;
 
 import bcstd.algorithm : any;
 import bcstd.memory : move, emplaceInit, AllocatorWrapperOf, SystemAllocator, maybeNull;
-import bcstd.meta : TypeId, TypeIdOf;
+import bcstd.meta : TypeId, TypeIdOf, isCopyable;
 
 private mixin template accessFuncs(bool TypeHasT)
 {

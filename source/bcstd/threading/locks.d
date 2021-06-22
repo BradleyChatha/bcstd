@@ -31,3 +31,18 @@ struct LockBusyCas
         return this._lock;
     }
 }
+
+struct Lockable(ValueT, LockT = LockBusyCas)
+{
+    private LockT  _lock;
+    private ValueT _value;
+
+    @nogc nothrow:
+
+    void access(scope void delegate(scope ref ValueT) @nogc nothrow func)
+    {
+        this._lock.lock();
+        scope(exit) this._lock.unlock();
+        func(this._value);
+    }
+}
