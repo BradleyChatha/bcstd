@@ -44,7 +44,7 @@ struct Thread
         return isThreadAlive(this);
     }
 
-    void join(Duration timeout = Duration.zero)
+    void join(Duration timeout = INFINITE.msecs)
     {
         return joinSingleThread(this, timeout);
     }
