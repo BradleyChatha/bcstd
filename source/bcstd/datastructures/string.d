@@ -57,12 +57,13 @@ struct String
 
     @nogc nothrow:
 
+    @trusted // Bounds checking + always confirming pointer validity *should* make this safe.
     this(bcstring str)
     {
         this = str;
     }
 
-    this(this)
+    this(this) @trusted
     {
         if(!this.isCompletelyEmpty && !this.isSmall)
         {
@@ -77,12 +78,14 @@ struct String
         }
     }
 
+    @trusted
     ~this()
     {
         this.disposeBigStringIfExists();
         this._store = Store.init;
     }
     
+    @trusted // This is technically safe by itself due to all the checks, but `chars` might point to bad memory. Can't express that in D though.
     void put(scope bcstring chars)
     {
         auto newLength = chars.length;
@@ -111,6 +114,7 @@ struct String
         this._store.bigPtr[this._store.bigLength] = '\0';
     }
 
+    @trusted
     void put(scope const ref String str)
     {
         this.put(str.sliceUnsafe);
@@ -134,6 +138,7 @@ struct String
         return this.isCompletelyEmpty;
     }
 
+    @trusted
     void opAssign(bcstring str)
     {   
         if(str is null)
@@ -144,6 +149,7 @@ struct String
             this.setBigString(str);
     }
 
+    @trusted
     void opAssign(typeof(null) _)
     {
         this.__xdtor();
@@ -283,6 +289,7 @@ struct String
         return (this.isSmall) ? this._store.smallString[0..this._store.smallLength] : this._store.bigPtr[0..this._store.bigLength];
     }
 
+    @trusted
     private void setSmallString(scope bcstring chars)
     {
         assert(chars.length <= this._store.smallString.length);
@@ -291,6 +298,7 @@ struct String
         this._store.smallLength = cast(ubyte)chars.length;
     }
 
+    @trusted
     private void setBigString(scope bcstring chars)
     {
         this.growBigStringIfNeeded(chars.length+1); // +1 for null term.
@@ -301,6 +309,7 @@ struct String
         assert(!this.isSmall, "Eh?");
     }
 
+    @trusted
     private void moveToBigString()
     {
         if(this.isCompletelyEmpty || !this.isSmall)
@@ -313,6 +322,7 @@ struct String
         this.setBigString(buffer[0..smallLength]);
     }
 
+    @trusted
     private void growBigStringIfNeeded(size_t newSize)
     {
         if(this.isCompletelyEmpty || this.isSmall)
@@ -337,6 +347,7 @@ struct String
         }
     }
 
+    @trusted
     private void disposeBigStringIfExists()
     {
         if(!this.isCompletelyEmpty && !this.isSmall)

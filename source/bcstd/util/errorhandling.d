@@ -1,7 +1,7 @@
 module bcstd.util.errorhandling;
 
 import bcstd.datastructures : SumType;
-import bcstd.object;
+import bcstd.object, bcstd.datastructures.string;
 
 enum BC_ERROR_MAX_MESSAGE_SIZE = 512;
 
@@ -14,14 +14,7 @@ struct BcError
     string module_;
     size_t line;
     int errorCode; // Function/Library specific.
-    private char[BC_ERROR_MAX_MESSAGE_SIZE] _message; // TODO: Don't use stack-allocated stuff for error messages, it's really not effecient, especially inside of tasks.
-    private char[] _messageSlice;
-
-    @property @safe @nogc
-    bcstring message() nothrow const
-    {
-        return this._messageSlice;
-    }
+    String message;
 }
 
 template ValueOrError(alias ValueT)
@@ -52,8 +45,7 @@ BcError raise(string File = __FILE_FULL_PATH__, string Function = __PRETTY_FUNCT
         Line,
         errorCode
     );
-    error._message[0..message.length] = message[0..$];
-    error._messageSlice = error._message[0..message.length];
+    error.message = message[0..$];
 
     return error;
 }
@@ -107,13 +99,13 @@ void formatError(OutputRange)(ref OutputRange output, BcError error)
     
     static if(__traits(hasMember, output, "reserve"))
     output.reserve(
-        part1.length
+          part1.length
         + part2.length
         + part3.length
         + part4.length
         + part5.length           + maxSizeT.length
         + part6.length           + maxSizeT.length
-        + part7.length
+        + part7.length           + error.message.length
         + error.file.length      + 2 // + 2 to include padding
         + error.function_.length + 2
         + error.module_.length   + 2
@@ -125,7 +117,7 @@ void formatError(OutputRange)(ref OutputRange output, BcError error)
     output.put(part4); output.put(error.function_); output.put('\n');
     output.put(part5); /*output.put(error.line);*/      output.put('\n'); // TODO: Put in the line number once bcstd can format things into text
     output.put(part6); /*output.put(error.errorCode);*/ output.put('\n');
-    output.put(part7); output.put(error.message);
+    output.put(part7); output.put(error.message.sliceUnsafe);
 
     output.put('\0');
 }
