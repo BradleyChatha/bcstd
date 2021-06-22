@@ -296,6 +296,22 @@ unittest
     assert(stringId != intId);
 }
 
+template UnsignedOf(alias NumT)
+{
+    static if(__traits(isUnsigned, NumT))
+        alias UnsignedOf = NumT;
+    else static if(__traits(isArithmetic, NumT))
+        mixin("alias UnsignedOf = u"~NumT.stringof~";");
+    else static assert(false);
+}
+///
+@("UnsignedOf")
+unittest
+{
+    static assert(is(UnsignedOf!byte == ubyte));
+    static assert(is(UnsignedOf!ubyte == ubyte));
+}
+
 /+++++++++++++++++ STOLEN FROM PHOBOS +++++++++++++++++++/
 /**
 Get the function type from a callable object `func`.

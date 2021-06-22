@@ -1,7 +1,7 @@
 module bcstd.util.errorhandling;
 
 import bcstd.datastructures : SumType;
-import bcstd.object, bcstd.datastructures.string;
+import bcstd.object, bcstd.datastructures.string, bcstd.util.conv;
 
 enum BC_ERROR_MAX_MESSAGE_SIZE = 512;
 
@@ -112,11 +112,11 @@ void formatError(OutputRange)(ref OutputRange output, BcError error)
     );
 
     output.put(part1);
-    output.put(part2); output.put(error.file);      output.put('\n');
-    output.put(part3); output.put(error.module_);   output.put('\n');
-    output.put(part4); output.put(error.function_); output.put('\n');
-    output.put(part5); /*output.put(error.line);*/      output.put('\n'); // TODO: Put in the line number once bcstd can format things into text
-    output.put(part6); /*output.put(error.errorCode);*/ output.put('\n');
+    output.put(part2); output.put(error.file);                      output.put('\n');
+    output.put(part3); output.put(error.module_);                   output.put('\n');
+    output.put(part4); output.put(error.function_);                 output.put('\n');
+    output.put(part5); output.put(error.line.to!String.range);      output.put('\n'); // TODO: Put in the line number once bcstd can format things into text
+    output.put(part6); output.put(error.errorCode.to!String.range); output.put('\n');
     output.put(part7); output.put(error.message.sliceUnsafe);
 
     output.put('\0');
