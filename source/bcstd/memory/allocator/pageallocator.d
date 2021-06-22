@@ -41,9 +41,9 @@ struct PageAllocator
             foreach(ref region; _regions.range)
             {
                 auto result = region.allocInPages(pageCount, allocGuardPage);
-                if(result.contains!BcError)
+                if(!result.isValid)
                     continue;
-                return result.get!PageAllocation;
+                return result.value;
             }
             newRegion();
         }
@@ -111,7 +111,7 @@ struct PageRegion
         this.pageSize = pageSize;
     }
 
-    ValueOrError!PageAllocation allocInPages(size_t pageCount, bool allocGuardPage)
+    SimpleResult!PageAllocation allocInPages(size_t pageCount, bool allocGuardPage)
     {
         PageAllocation alloc;
         
@@ -119,9 +119,9 @@ struct PageRegion
         {
             scope(exit) this.bitKeepLock.unlock();
             auto result = this.bitKeep.alloc(pageCount + allocGuardPage);
-            if(result.contains!BcError)
-                return typeof(return)(result.get!BcError());
-            alloc.bitKeepSlice = result.get!BitKeeperSlice;
+            if(!result.isValid)
+                return typeof(return)(result.error);
+            alloc.bitKeepSlice = result.value;
         }
 
         const start = (this.pageSize * alloc.bitKeepSlice.bitIndex);

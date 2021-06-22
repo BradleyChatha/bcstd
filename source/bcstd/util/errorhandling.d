@@ -1,9 +1,7 @@
 module bcstd.util.errorhandling;
 
 import bcstd.datastructures : SumType;
-import bcstd.object, bcstd.datastructures.string, bcstd.util.conv;
-
-enum BC_ERROR_MAX_MESSAGE_SIZE = 512;
+import bcstd.object, bcstd.datastructures.string, bcstd.data.conv;
 
 @nogc nothrow:
 
@@ -17,27 +15,67 @@ struct BcError
     String message;
 }
 
-template ValueOrError(alias ValueT)
+struct SimpleResult(T)
 {
-    union U
+    private union ValueOrError
     {
-        ValueT value;
+        static if(!is(T == void)) T value;
         BcError error;
     }
 
-    alias ValueOrError = SumType!U;
+    private bool _isValid;
+    private SumType!ValueOrError _value;
+
+    static if(!is(T == void))
+    this()(auto ref T value)
+    {
+        this._value = value;
+        this._isValid = true;
+    }
+
+    this(BcError error)
+    {
+        this._value = error;
+        this._isValid = false;
+    }
+
+    @property @safe @nogc
+    bool isValid() nothrow pure const
+    {
+        return this._isValid;
+    }
+
+    static if(!is(T == void))
+    @property
+    ref T value()()
+    {
+        assert(this._isValid, "Attempted to get value of invalid result.");
+        return this._value.get!T;
+    }
+
+    @property
+    BcError error()
+    {
+        assert(!this._isValid, "Attempted to get value of not-invalid result.");
+        return this._value.get!BcError;
+    }
 }
-private struct MaybeErrorV{}
-alias MaybeError = ValueOrError!MaybeErrorV;
+
+SimpleResult!ValueT result(ValueT)(auto ref BcError error)
+{
+    return typeof(return)(error);
+}
+
+SimpleResult!ValueT result(ValueT)(auto ref ValueT value)
+{
+    return typeof(return)(value);
+}
 
 BcError raise(string File = __FILE_FULL_PATH__, string Function = __PRETTY_FUNCTION__, string Module = __MODULE__, size_t Line = __LINE__)(
     bcstring message,
     int errorCode = 0
 )
 {
-    if(message.length > BC_ERROR_MAX_MESSAGE_SIZE)
-        message = message[0..BC_ERROR_MAX_MESSAGE_SIZE];
-
     auto error = BcError(
         File,
         Function,
@@ -50,32 +88,25 @@ BcError raise(string File = __FILE_FULL_PATH__, string Function = __PRETTY_FUNCT
     return error;
 }
 
-auto assertNotError(ValueOrErrorT)(auto ref ValueOrErrorT valueOrError)
+auto assertValidResult(ResultT)(auto ref ResultT result)
 {
-    static if(is(ValueOrErrorT == MaybeError))
-    {
-        if(valueOrError == MaybeError.init && valueOrError.contains!(BcError))
-            throwError(valueOrError.get!BcError);
-    }
-    else
-    {
-        if(valueOrError.contains!BcError)
-            throwError(valueOrError.get!BcError);
+    if(!result.isValid)
+        throwError(result.error);
 
-        return valueOrError.get!(typeof(ValueOrErrorT.Union.tupleof[0]));
-    }
+    static if(__traits(hasMember, ResultT, "value"))
+        return result.value;
 }
 ///
-@("assertNotError")
+@("assertValidResult")
 unittest
 {
-    ValueOrError!int a = 69;
-    ValueOrError!int b = raise("yolo swag");
+    SimpleResult!int a = 69.result;
+    SimpleResult!int b = raise("yolo swag").result!int;
 
-    assert(a.assertNotError == 69);
+    assert(a.assertValidResult == 69);
 
     bool threw;
-    try b.assertNotError();
+    try b.assertValidResult();
     catch(Error e) threw = true;
     assert(threw);
 }
@@ -115,7 +146,7 @@ void formatError(OutputRange)(ref OutputRange output, BcError error)
     output.put(part2); output.put(error.file);                      output.put('\n');
     output.put(part3); output.put(error.module_);                   output.put('\n');
     output.put(part4); output.put(error.function_);                 output.put('\n');
-    output.put(part5); output.put(error.line.to!String.range);      output.put('\n'); // TODO: Put in the line number once bcstd can format things into text
+    output.put(part5); output.put(error.line.to!String.range);      output.put('\n');
     output.put(part6); output.put(error.errorCode.to!String.range); output.put('\n');
     output.put(part7); output.put(error.message.sliceUnsafe);
 

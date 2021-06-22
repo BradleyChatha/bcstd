@@ -37,7 +37,7 @@ struct BitKeeper
         assert(this._maxBitsToUse/8 <= bytes.length, "Not enough bytes were provided for the given maxBitsToUse value.");
     }
 
-    ValueOrError!BitKeeperSlice alloc(size_t bitCount)
+    SimpleResult!BitKeeperSlice alloc(size_t bitCount)
     {
         assert(this._bytes !is null, "This BitKeeper hasn't been initialised.");
         if(bitCount == 0)
@@ -169,35 +169,35 @@ unittest
     // NOTE: User code can't manually create BitKeeperSlices like the unittest can.
 
     // Single-byte
-    assert(bits.alloc(1).assertNotError == BitKeeperSlice(0, 0, 1));
+    assert(bits.alloc(1).assertValidResult == BitKeeperSlice(0, 0, 1));
     assert(buffer[0] == 1);
     bits.free(BitKeeperSlice(0, 0, 1));
     assert(buffer[0] == 0);
-    assert(bits.alloc(1).assertNotError == BitKeeperSlice(0, 0, 1));
-    assert(bits.alloc(3).assertNotError == BitKeeperSlice(0, 1, 3));
+    assert(bits.alloc(1).assertValidResult == BitKeeperSlice(0, 0, 1));
+    assert(bits.alloc(3).assertValidResult == BitKeeperSlice(0, 1, 3));
     assert(buffer[0] == 0b0000_1111);
     bits.free(BitKeeperSlice(0, 1, 2));
     assert(buffer[0] == 0b0000_1001);
-    assert(bits.alloc(1).assertNotError == BitKeeperSlice(0, 1, 1));
-    assert(bits.alloc(2).assertNotError == BitKeeperSlice(0, 4, 2));
+    assert(bits.alloc(1).assertValidResult == BitKeeperSlice(0, 1, 1));
+    assert(bits.alloc(2).assertValidResult == BitKeeperSlice(0, 4, 2));
     assert(buffer[0] == 0b0011_1011);
     buffer[0] = 0;
 
     // Two bytes
-    assert(bits.alloc(7).assertNotError == BitKeeperSlice(0, 0, 7));
-    assert(bits.alloc(3).assertNotError == BitKeeperSlice(0, 7, 3));
+    assert(bits.alloc(7).assertValidResult == BitKeeperSlice(0, 0, 7));
+    assert(bits.alloc(3).assertValidResult == BitKeeperSlice(0, 7, 3));
     assert(buffer[0] == 0xFF);
     assert(buffer[1] == 0b0000_0011);
     bits.free(BitKeeperSlice(0, 7, 2));
     assert(buffer[0] == 0b0111_1111);
     assert(buffer[1] == 0b0000_0010);
-    assert(bits.alloc(3).assertNotError == BitKeeperSlice(1, 2, 3));
+    assert(bits.alloc(3).assertValidResult == BitKeeperSlice(1, 2, 3));
     assert(buffer[0] == 0b0111_1111);
     assert(buffer[1] == 0b0001_1110);
     buffer[0..2] = 0;
 
     // Multi-byte
-    assert(bits.alloc(18).assertNotError == BitKeeperSlice(0, 0, 18));
+    assert(bits.alloc(18).assertValidResult == BitKeeperSlice(0, 0, 18));
     assert(buffer[0] == 0xFF);
     assert(buffer[1] == 0xFF);
     assert(buffer[2] == 0b0000_0011);

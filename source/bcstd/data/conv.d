@@ -1,4 +1,4 @@
-module bcstd.util.conv;
+module bcstd.data.conv;
 
 import bcstd.datastructures.string, bcstd.util.maths;
 
