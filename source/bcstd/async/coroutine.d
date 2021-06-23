@@ -262,7 +262,11 @@ private void releaseMemoryResources(Coroutine* routine, bool isForReset = false)
 private void releaseMemoryResources(CoroutineStack stack)
 {
     stack.visit!(
-        (StandaloneStack* standalone) => pageFree(standalone.context.pages)
+        (StandaloneStack* standalone) 
+        {
+            pageFree(standalone.context.pages);
+            g_alloc.dispose(standalone);
+        }
     )(stack);
 }
 

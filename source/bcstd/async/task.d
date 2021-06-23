@@ -27,9 +27,10 @@ private struct TaskContext
 @(OnMove.callUpdateInternalPointers)
 struct Task
 {
-    private Coroutine*  _coroutine;
-    private TaskState   _state;
-    private TaskContext _context;
+    private Coroutine*     _coroutine;
+    private TaskState      _state;
+    private TaskContext    _context;
+    private CoroutineStack _stack;
 
     @disable this(this){}
 
@@ -46,9 +47,9 @@ struct Task
             this._context.userContext = context.makeTyped;
 
         // TODO: Stack customisation. New PageAllocator means memory is managed a lot better now.
-        auto stack = bcstdCreateStandaloneCoroutineStack();
+        this._stack = bcstdCreateStandaloneCoroutineStack();
         this._context.entryPoint = func;
-        this._coroutine = bcstdCreateCoroutine(&coroutine, stack, &this._context);
+        this._coroutine = bcstdCreateCoroutine(&coroutine, this._stack, &this._context);
     }
 
     private static void coroutine()
@@ -111,6 +112,7 @@ struct Task
         assert(this.isValid, "This task is in an invalid state.");
         this._state = TaskState.uninit;
         bcstdDestroyCoroutine(this._coroutine);
+        bcstdDestroyCoroutineStack(this._stack);
         this._coroutine = null;
     }
 
