@@ -170,8 +170,16 @@ struct Array(alias T, alias AllocT = SystemAllocator, alias Grow = DefaultGrowth
         }
         else
         {
-            T init = T.init;
-            this._slice[this._inUse..newAmount] = init;
+            static if(isCopyable!T)
+            {
+                T init = T.init;
+                this._slice[this._inUse..newAmount] = init;
+            }
+            else
+            {
+                foreach(ref value; this._slice[this._inUse..newAmount])
+                    emplaceInit(value);
+            }
         }
 
         this._inUse = newAmount;

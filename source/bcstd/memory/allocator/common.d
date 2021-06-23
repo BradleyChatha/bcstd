@@ -3,7 +3,7 @@ module bcstd.memory.allocator.common;
 import bcstd.meta.ctassert : ctassert;
 import bcstd.memory.ptr : MaybeNullPtr, MaybeNullSlice, NotNullSlice, maybeNull, NotNullPtr, notNull;
 import bcstd.memory.funcs : emplaceCtor, dtorSliceIfNeeded, emplaceInit;
-import bcstd.meta.traits : isInstanceOf;
+import bcstd.meta.traits : isInstanceOf, isCopyable;
 
 enum isSimpleAllocator(alias T) =
     __traits(hasMember, T, "alloc")
@@ -93,8 +93,16 @@ if(ctassert!(isSimpleAllocator!AllocT, "Type `"~AllocT.stringof~"` is not an all
         
         static if(!__traits(isZeroInit, T))
         {
-            T init = T.init;
-            ptr[oldLen..oldLen+diff] = init;
+            static if(isCopyable!T)
+            {
+                T init = T.init;
+                ptr[oldLen..oldLen+diff] = init;
+            }
+            else
+            {
+                foreach(ref value; ptr[oldLen..oldLen+diff])
+                    emplaceInit(value);
+            }
         }
         return typeof(return)(ptr[0..to]);
     }

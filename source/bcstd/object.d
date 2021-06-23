@@ -1,6 +1,7 @@
 module bcstd.object;
 
 import bcstd.threading.locks : LockBusyCas;
+import bcstd.threading.thread;
 
 alias bcstring = const(char)[];
 
@@ -13,4 +14,6 @@ void bcstdAppInit()
 
 void bcstdAppUninit()
 {
+    assert(!g_appInitLock.tryLock(), "Please call bcstdAppInit first.");
+    threadingOnAppClosing();
 }

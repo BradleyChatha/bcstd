@@ -108,7 +108,7 @@ unittest
     static assert(isSomeFunction!d);
 }
 
-enum isCopyable(T) = __traits(compiles, { T t; t = T.init; });
+enum isCopyable(alias T) = is(typeof({ T t; T t2; t = t2; }));
 ///
 @("isCopyable")
 unittest

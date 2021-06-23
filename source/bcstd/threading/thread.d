@@ -1,8 +1,8 @@
 module bcstd.threading.thread;
 
 public import core.time;
-import bcstd.datastructures.hashstuff, bcstd.util.errorhandling;
-import bcstd.threading.locks;
+import bcstd.datastructures.hashstuff, bcstd.datastructures.array, bcstd.util.errorhandling;
+import bcstd.threading.locks, bcstd.threading.canceltoken;
 
 version(Windows)
 {
@@ -14,14 +14,13 @@ version(Windows)
 }
 else static assert(false, "TODO Posix");
 
-// private __gshared Lockable!(RobinHoodHashMap!(ThreadId, ThreadStateInfo)) g_threadStates;
+private __gshared Lockable!(RobinHoodHashMap!(ThreadId, ThreadStateInfo)) g_threadStates;
 
-// I'll add this all back in if I ever actually need it.
-// Which I probably will once we're in Unix land.
-// private struct ThreadStateInfo
-// {
-//     ThreadHandle handle;
-// }
+private struct ThreadStateInfo
+{
+    CancelToken appClosingToken;
+    ThreadHandle handle;
+}
 
 // You know, these parts of the Windows API I've been touching aren't actually all that bad.
 // It has really great documentation, and sort of "just works" most of the time. Most. Of. The. Time.
@@ -29,15 +28,8 @@ struct Thread
 {
     @nogc nothrow:
 
-    @disable this(this){}
-
     private ThreadHandle _handle = INVALID_HANDLE_VALUE;
-    private ThreadId     _id;
-
-    ~this()
-    {
-        closeThread(this);
-    }
+    private ThreadId _id;
 
     bool isAlive()
     {
@@ -53,6 +45,24 @@ struct Thread
 Thread runThread(ContextT)(SimpleResult!void function(ContextT context) entry, ContextT context)
 {
     return createThreadWithUserContext(entry, context);
+}
+
+package(bcstd) @nogc nothrow:
+
+void threadingOnAppClosing()
+{
+    Array!ThreadHandle threads;
+    g_threadStates.access((ref hashmap)
+    {
+        foreach(kvp; hashmap.range)
+        {
+            kvp.value.appClosingToken.cancel();
+            threads.put(kvp.value.handle);
+        }
+    });
+
+    // TODO: Maybe allow threads to specify if they're a foreground or a background thread, and only join on the foreground ones.
+    joinMultipleThreads(threads[], 60.seconds); // After a minute, allow the program to close, forcing the threads to finish one way or another.
 }
 
 private @nogc nothrow:
@@ -88,6 +98,17 @@ version(Windows)
             info.threadReadySignal.unlock(); // info has been copied, allow the parent thread to continue.
             info = null;
 
+            const id = GetCurrentThreadId();
+            scope(exit)
+            {
+                g_threadStates.access((ref hashmap)
+                {
+                    ThreadStateInfo info;
+                    hashmap.removeAt(cast(ThreadId)id, info);
+                    CloseHandle(info.handle);
+                });
+            }
+
             rt_moduleTlsCtor();
             scope(exit) rt_moduleTlsDtor();
             
@@ -112,7 +133,7 @@ version(Windows)
             &id
         );
 
-        //g_threadStates.access((ref hashmap) { hashmap.put(id, ThreadStateInfo(handle)); });
+        g_threadStates.access((ref hashmap) { hashmap.put(id, ThreadStateInfo(CancelToken.init, handle)); });
 
         info.threadReadySignal.lock(); // Wait for the thread to unlock it - shouldn't take _too_ long hence why I'm using a busy wait.
         return Thread(handle, id);
@@ -137,6 +158,13 @@ version(Windows)
         if(timeout.isNegative)
             timeout = Duration.zero;
         WaitForSingleObject(thread._handle, cast(uint)timeout.total!"msecs");
+    }
+
+    void joinMultipleThreads(ThreadHandle[] threads, Duration timeout)
+    {
+        if(timeout.isNegative)
+            timeout = Duration.zero;
+        WaitForMultipleObjects(cast(uint)threads.length, threads.ptr, false, cast(uint)timeout.total!"msecs");
     }
 }
 

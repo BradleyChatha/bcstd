@@ -28,8 +28,8 @@ struct RobinHoodHashMap(
     // Moving things we don't need to move is *suuuper* slow, so types can explicitly say if they prefer being moved.
     enum KeyOptimise   = BitmaskUda!(OptimisationHint, KeyT);
     enum ValueOptimise = BitmaskUda!(OptimisationHint, ValueT);
-    enum MoveKey       = (KeyOptimise & OptimisationHint.preferMoveOverCopy) > 0;
-    enum MoveValue     = (ValueOptimise & OptimisationHint.preferMoveOverCopy) > 0;
+    enum MoveKey       = (KeyOptimise & OptimisationHint.preferMoveOverCopy) > 0   || !isCopyable!KeyT;
+    enum MoveValue     = (ValueOptimise & OptimisationHint.preferMoveOverCopy) > 0 || !isCopyable!ValueT;
 
     static struct Node
     {
@@ -276,8 +276,8 @@ struct RobinHoodHashMap(
         ref ValueT currValue
     )
     {
-        currKey   = key;
-        currValue = value;
+        static if(MoveKey)   move(key, currKey);     else currKey = key;
+        static if(MoveValue) move(value, currValue); else currValue = value;
 
         const index    = toHashToPrimeIndex!(Hasher, KeyT)(key, this._primeIndex-1);
         const length   = array.length;
