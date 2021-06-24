@@ -9,3 +9,5 @@ Use it if you want, but I've only put it onto Dub to make it easier for my perso
 Very alpha. Very unstable. Don't trust it for any serious project if for some ridiculous reason you're using it in the first place.
 
 Goals are to use Phobos and libc as little as possible. Unittests aren't compiled under -betterC since it allows easier debugging.
+
+Targets are x86_64 on Windows and Linux. If things work on Mac then great! But it's not something I'm going out of my way to support.

@@ -51,11 +51,20 @@ struct Unique(alias T)
     private T    _value;
     private bool _set;
 
+    @disable this(this){}
+
     @nogc nothrow:
 
     this()(auto ref T value)
     {
         this = value;
+    }
+
+    this(scope ref return typeof(this) rhs)
+    {
+        move(rhs._value, this._value);
+        this._set = true;
+        rhs._set = false;
     }
 
     private void accessImpl(T)(T func)
@@ -65,13 +74,6 @@ struct Unique(alias T)
     }
 
     mixin accessFuncs!true;
-
-    void opAssign()(auto ref typeof(this) value)
-    {
-        move(value._value, this._value);
-        this._set = true;
-        value._set = false;
-    }
 
     void opAssign()(auto ref T value)
     {
@@ -236,7 +238,7 @@ struct Shared(alias T, alias AllocT = SystemAllocator)
         this.createNewStore(value);
     }
 
-    this(scope ref typeof(this) copy)
+    this(scope ref return typeof(this) copy)
     {
         auto oldStore = this._store;
 

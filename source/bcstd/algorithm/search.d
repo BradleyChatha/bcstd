@@ -54,7 +54,6 @@ size_t indexOfAscii(scope const bcstring haystack, char asciiChar)
 @("indexOfAscii")
 unittest
 {
-
     assert("0123456789".indexOfAscii('0') == 0);
     assert("0123456789".indexOfAscii('9') == 9);
     assert("0123456789".indexOfAscii('4') == 4);

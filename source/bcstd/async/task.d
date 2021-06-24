@@ -3,7 +3,7 @@ module bcstd.async.task;
 import bcstd.object;
 import bcstd.async.coroutine;
 import bcstd.datastructures : TypedPtr, makeTyped;
-import bcstd.memory : OnMove;
+import bcstd.memory : move;
 import bcstd.util : BcError, raise, displayError;
 
 enum TaskState
@@ -24,7 +24,6 @@ private struct TaskContext
     bool          yieldedWithValue;
 }
 
-@(OnMove.callUpdateInternalPointers)
 struct Task
 {
     private Coroutine*     _coroutine;
@@ -52,6 +51,16 @@ struct Task
         this._coroutine = bcstdCreateCoroutine(&coroutine, this._stack, &this._context);
     }
 
+    this(ref return scope Task rhs)
+    {
+        this._coroutine = rhs._coroutine;
+        this._state     = rhs._state;
+        move(rhs._context, this._context);
+        this._stack     = rhs._stack;
+        if(this._coroutine !is null)
+            this._coroutine.context = &this._context;
+    }
+
     private static void coroutine()
     {
         auto ctx = cast(TaskContext*)bcstdGetCoroutineContext();
@@ -74,12 +83,6 @@ struct Task
     {
         if(this.isValid)
             this.dispose();
-    }
-
-    void updateInternalPointers()
-    {
-        if(this._coroutine !is null)
-            this._coroutine.context = &this._context;
     }
 
     void resume()

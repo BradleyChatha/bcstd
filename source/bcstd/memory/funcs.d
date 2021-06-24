@@ -10,9 +10,6 @@ enum OnMove
 {
     allow,
     forbid,
-    callPostblit,
-    callUpdateInternalPointers,
-    dontDtorSource
 }
 
 @nogc nothrow
@@ -93,8 +90,7 @@ private struct ByteSplitInfo
 
 // This is faster than a normal byte-by-byte memcpy. It *should* be faster than the vectoirsed version LDC produces as well
 // as we don't have to handle every different possible situation.
-pragma(inline, true)
-void memcpySmart(alias T)(scope T* source, scope T* dest)
+private void memcpySmart(alias T)(scope T* source, scope T* dest)
 {
     static if(!is(T == struct) || (T.sizeof <= 64 && __traits(isPOD, T)))
     {
@@ -172,7 +168,10 @@ void move(T, bool makeSourceInit = true, bool destroyDest = true)(scope ref T so
 
     static if(destroyDest && __traits(compiles, T.init.__xdtor()) && !isPointer!T)
         dest.__xdtor();
-    memcpySmart!T(&source, &dest);
+    static if(__traits(hasCopyConstructor, T))
+        dest.__ctor(source);
+    else
+        memcpySmart!T(&source, &dest);
 
     static if(makeSourceInit)
     {
@@ -181,10 +180,7 @@ void move(T, bool makeSourceInit = true, bool destroyDest = true)(scope ref T so
     }
     
     // TODO: Apply OnMove actions for struct members as well, as members' `OnMove` udas aren't respected like this.
-    static if(MoveAction == OnMove.callPostblit)
-        dest.__xpostblit();
-    else static if(MoveAction == OnMove.callUpdateInternalPointers)
-        dest.updateInternalPointers();
+    ///      e.g. T could have a member marked as @OnMove.forbid, but that wouldn't be respected since we don't look for it.
 }
 ///
 @("move")
@@ -243,11 +239,10 @@ unittest
 {
     int c;
 
-    @(OnMove.callPostblit)
     struct S
     {
         @nogc nothrow
-        this(this)
+        this(ref return scope S s)
         {
             c++;
         }

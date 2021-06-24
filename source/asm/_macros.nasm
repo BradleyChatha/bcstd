@@ -1,3 +1,6 @@
+; self-note: Remember that relying on these won't always work due to ABI differences.
+;            SysV has an extra parameter register, the register allocation for mixed int and FLU parameter registers is also different.
+;            So some functions can be written in a platform-agnostic way, but some functions need specific `%ifdef sysv` and such extra logic in place.
 %ifdef win64
     %define PARAM_REG_0 rcx
     %define PARAM_REG_1 rdx
