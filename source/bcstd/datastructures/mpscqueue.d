@@ -77,7 +77,7 @@ struct MpscBoundedQueue(T, size_t size)
 }
 ///
 @("MspcBoundedQueue")
-//version(none) // Bit of a manual test this one.
+version(none) // Bit of a manual test this one.
 unittest
 {
     import bcstd.threading, bcstd.util.errorhandling;

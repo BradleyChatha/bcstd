@@ -24,6 +24,16 @@ global bcstdCoroutineSwap
         mov [%1+8*11], r10
         mov [%1+8*12], r11
     %elifdef sysv
+        lea rax, [rsp+8]
+        mov r8, [rsp]
+        mov [%1+8*0] rax
+        mov [%1+8*1] r8
+        mov [%1+8*2] rbx
+        mov [%1+8*3] rbp
+        mov [%1+8*4] r12
+        mov [%1+8*5] r13
+        mov [%1+8*6] r14
+        mov [%1+8*7] r15
     %else
         %error "win64 and sysv are both undefined."
     %endif
@@ -56,8 +66,7 @@ global bcstdCoroutineSwap
 
 ; (ref RawCoroutine thisRoutine, ref RawCoroutine newRoutine)
 bcstdCoroutineSwap:
-    ; TODO Macro to convert param index into register, since RCX as the 1st param is Win64 only, SysV uses RSI (of all registers).
-    saveRoutine rcx
-    restoreRoutine rdx
+    saveRoutine PARAM_REG_0
+    restoreRoutine PARAM_REG_1
     int3 ; Failsafe
     hlt

@@ -48,6 +48,19 @@ static if(Win64)
 }
 else static if(SysV)
 {
+    private enum REGISTERS : size_t
+    {
+        rsp,
+        ret,
+        rbx,
+        rbp,
+        r12,
+        r13,
+        r14,
+        r15,
+
+        COUNT
+    }
 }
 
 package @nogc nothrow:
