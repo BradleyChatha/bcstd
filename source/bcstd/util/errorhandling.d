@@ -1,7 +1,7 @@
 module bcstd.util.errorhandling;
 
 import bcstd.datastructures : SumType;
-import bcstd.object, bcstd.datastructures.string, bcstd.data.conv;
+import bcstd.object, bcstd.datastructures.string, bcstd.data.conv, bcstd.memory, bcstd.meta;
 
 @nogc nothrow:
 
@@ -17,25 +17,25 @@ struct BcError
 
 struct SimpleResult(T)
 {
-    private union ValueOrError
-    {
-        static if(!is(T == void)) T value;
-        BcError error;
-    }
+    private bool    _isValid;
+    private BcError _error;
 
-    private bool _isValid = is(T == void);
-    private SumType!ValueOrError _value;
+    static if(!is(T == void))
+    private T       _value;
 
     static if(!is(T == void))
     this()(auto ref T value)
     {
-        this._value = value;
+        static if(isCopyable!T)
+            this._value = value;
+        else
+            move(value, this._value);
         this._isValid = true;
     }
 
     this(BcError error)
     {
-        this._value = error;
+        this._error = error;
         this._isValid = false;
     }
 
@@ -47,17 +47,17 @@ struct SimpleResult(T)
 
     static if(!is(T == void))
     @property
-    ref T value()()
+    ref inout(T) value()() inout
     {
         assert(this._isValid, "Attempted to get value of invalid result.");
-        return this._value.get!T;
+        return this._value;
     }
 
     @property
     BcError error()
     {
         assert(!this._isValid, "Attempted to get value of not-invalid result.");
-        return this._value.get!BcError;
+        return this._error;
     }
 }
 
@@ -88,7 +88,7 @@ BcError raise(string File = __FILE_FULL_PATH__, string Function = __PRETTY_FUNCT
     return error;
 }
 
-auto assertValidResult(ResultT)(auto ref ResultT result)
+auto assumeValid(ResultT)(auto ref ResultT result)
 {
     if(!result.isValid)
         throwError(result.error);
@@ -97,16 +97,16 @@ auto assertValidResult(ResultT)(auto ref ResultT result)
         return result.value;
 }
 ///
-@("assertValidResult")
+@("assumeValid")
 unittest
 {
     SimpleResult!int a = 69.result;
     SimpleResult!int b = raise("yolo swag").result!int;
 
-    assert(a.assertValidResult == 69);
+    assert(a.assumeValid == 69);
 
     bool threw;
-    try b.assertValidResult();
+    try b.assumeValid();
     catch(Error e) threw = true;
     assert(threw);
 }

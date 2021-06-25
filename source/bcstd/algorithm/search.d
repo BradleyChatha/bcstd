@@ -5,7 +5,10 @@ import core.cpuid;
 
 const INDEX_NOT_FOUND = size_t.max;
 
+@nogc nothrow:
+
 // Using NASM because D's inline ASM, and even core.simd, don't support things like vpbroadcastb, so....
+@trusted
 private extern(C) ulong indexOfByteAvx2(const(ubyte)* haystack, ulong haystackSize, ubyte* needle, ulong* remainingChars);
 @("indexOfByteAvx2")
 unittest
@@ -29,6 +32,7 @@ unittest
     }
 }
 
+@trusted
 size_t indexOfAscii(scope const bcstring haystack, char asciiChar)
 {
     assert((asciiChar & 0b1000_0000) == 0, "This function does not support searching for UTF chars.");

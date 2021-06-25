@@ -1,6 +1,6 @@
 module bcstd.data.conv;
 
-import bcstd.datastructures.string, bcstd.util.maths;
+import bcstd.datastructures.string, bcstd.util.maths, bcstd.util.errorhandling, bcstd.object, bcstd.meta;
 
 private enum MAX_SIZE_T_STRING_LEN = "18446744073709551615".length;
 alias IntToCharBuffer = char[MAX_SIZE_T_STRING_LEN];
@@ -14,10 +14,27 @@ String to(StringT : String, ValueT)(ValueT value)
     else static assert(false, "Don't know how to convert '"~ValueT.stringof~"' into a String.");
 }
 ///
-@("to")
+@("to!String")
 unittest
 {
     assert(127.to!String == "127");
+}
+
+SimpleResult!NumT to(NumT, ValueT)(ValueT value)
+if(__traits(isIntegral, NumT))
+{
+    static if(is(ValueT : bcstring))
+        return fromBase10!NumT(value);
+    else static if(is(ValueT == String))
+        return fromBase10!NumT(value.range);
+    else static assert(false, "Don't know how to convert `"~ValueT.stringof~"` into a `"~NumT.stringof~"`");
+}
+///
+@("to!NumT")
+unittest
+{
+    assert("69".to!int.assumeValid == 69);
+    assert(String("-120").to!byte.assumeValid == -120);
 }
 
 String toBase10(NumT)(NumT num)
@@ -92,4 +109,60 @@ unittest
     assert(toBase10!long(long.min, buffer) == "-9223372036854775808");
     assert(toBase10!ulong(ulong.max, buffer) == "18446744073709551615");
     assert(toBase10!ulong(ulong.min, buffer) == "0");
+}
+
+SimpleResult!NumT fromBase10(NumT)(bcstring str)
+{
+    if(str.length == 0)
+        return raise("String is null.").result!NumT;
+
+    ptrdiff_t cursor = cast(ptrdiff_t)str.length-1;
+    
+    const firstDigit = str[cursor--] - '0';
+    if(firstDigit >= 10 || firstDigit < 0)
+        return raise("String contains non-base10 characters.").result!NumT;
+
+    NumT result = cast(NumT)firstDigit;
+    uint exponent = 10;
+    while(cursor >= 0)
+    {
+        if(cursor == 0 && str[cursor] == '-')
+        {
+            static if(__traits(isUnsigned, NumT))
+                return raise("Cannot convert a negative number into an unsigned type.").result!NumT;
+            else
+            {
+                result *= -1;
+                break;
+            }
+        }
+
+        const digit = str[cursor--] - '0';
+        if(digit >= 10 || digit < 0)
+            return raise("String contains non-base10 characters.").result!NumT;
+
+        const oldResult = result;
+        result += digit * exponent;
+        if(result < oldResult)
+            return raise("Overflow. String contains a number greater than can fit into specified numeric type.").result!NumT;
+
+        exponent *= 10;
+    }
+
+    return result.result;
+}
+///
+@("fromBase10")
+unittest
+{
+    assert(!fromBase10!int(null).isValid);
+    assert(fromBase10!int("0").assumeValid == 0);
+    assert(fromBase10!int("1").assumeValid == 1);
+    assert(fromBase10!int("21").assumeValid == 21);
+    assert(fromBase10!int("321").assumeValid == 321);
+    assert(!fromBase10!ubyte("256").isValid);
+    assert(fromBase10!ubyte("255").assumeValid == 255);
+    assert(!fromBase10!int("yolo").isValid);
+    assert(!fromBase10!uint("-20").isValid);
+    assert(fromBase10!int("-231").assumeValid == -231);
 }

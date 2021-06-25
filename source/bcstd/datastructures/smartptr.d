@@ -159,7 +159,7 @@ unittest
         v.num *= 2;
     });
 
-    b = a;
+    move(a, b);
     assert(a.isNull);
     assert(a._value == S.init);
     assert(!b.isNull);
