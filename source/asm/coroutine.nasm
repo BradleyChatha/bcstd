@@ -59,6 +59,15 @@ global bcstdCoroutineSwap
         mov gs:[16], r10
         jmp rax
     %elifdef sysv
+        mov rsp, [%1+8*0]
+        mov rax, [%1+8*1]
+        mov rbx, [%1+8*2]
+        mov rbp, [%1+8*3]
+        mov r12, [%1+8*4]
+        mov r13, [%1+8*5]
+        mov r14, [%1+8*6]
+        mov r15, [%1+8*7]
+        jmp rax
     %else
         %error "win64 and sysv are both undefined."
     %endif
