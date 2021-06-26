@@ -43,8 +43,8 @@ unittest
     }
 
     assert(127.to!String == "127");
-    assert(S(29, "yolo", true).to!String == "S(29, yolo, true)", S(29, "yolo", true).to!String.range.idup);
-    assert(SS("ribena cow", S(69, "swag", false)).to!String == "SS(ribena cow, S(69, swag, false))");
+    assert(S(29, "yolo", true).to!String == `S(29, "yolo", true)`);
+    assert(SS("ribena cow", S(69, "swag", false)).to!String == `SS("ribena cow", S(69, "swag", false))`);
 }
 
 SimpleResult!NumT to(NumT, ValueT)(ValueT value)
@@ -71,8 +71,17 @@ if(is(StructT == struct) && isOutputRange!(OutputT, bcstring))
     output.put("(");
     foreach(i, ref v; value.tupleof)
     {{
-        String s = to!String(v);
-        output.put(s.range);
+        static if(is(typeof(v) : bcstring) || is(typeof(v) == String))
+        {
+            output.put("\"");
+            output.put(v);
+            output.put("\"");
+        }
+        else
+        {
+            String s = to!String(v);
+            output.put(s.range);
+        }
 
         static if(i < StructT.tupleof.length-1)
             output.put(", ");

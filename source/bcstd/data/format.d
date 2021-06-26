@@ -46,7 +46,7 @@ unittest
 
     assert(format("abc").assumeValid == "abc");
     assert(format("abc {1} {0}", 123, "easy as").assumeValid == "abc easy as 123");
-    assert(format("abc {0}", DoeRayMe("hard as", 321)).assumeValid == "abc DoeRayMe(hard as, 321)");
+    assert(format("abc {0}", DoeRayMe("hard as", 321)).assumeValid == `abc DoeRayMe("hard as", 321)`);
 }
 
 @nogc
