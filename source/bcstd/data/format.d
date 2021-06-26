@@ -38,8 +38,15 @@ SimpleResult!String format(Params...)(scope bcstring spec, scope Params params)
 @("format (formatInfoPusher & defaultFormatter by proxy)")
 unittest
 {
+    struct DoeRayMe
+    {
+        string easyAs;
+        int oneTwoThree;
+    }
+
     assert(format("abc").assumeValid == "abc");
     assert(format("abc {1} {0}", 123, "easy as").assumeValid == "abc easy as 123");
+    assert(format("abc {0}", DoeRayMe("hard as", 321)).assumeValid == "abc DoeRayMe(hard as, 321)");
 }
 
 @nogc
@@ -86,15 +93,15 @@ private void defaultFormatterSegmentHandler(ParamT)(scope ref String result, con
     const formatter = segment.formatter;
     if(formatter is null)
     {
-        static if(is(ParamT : bcstring) || is(ParamT == String))
-            result.put(param);
-        else static if(__traits(compiles, to!String(param)))
-            result.put(to!String(param).range);
+        static if(__traits(compiles, result.put(param)))
+            result.put(param);        
         else static if(__traits(hasMember, ParamT, "toString"))
         {
             auto str = param.toString();
             result.put(str);
         }
+        else static if(__traits(compiles, to!String(param)))
+            result.put(to!String(param).range);
         else static assert(false, "Don't know how to default format param of type "~ParamT.stringof);
     }
     else

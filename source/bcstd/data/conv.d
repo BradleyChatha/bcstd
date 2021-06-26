@@ -1,23 +1,50 @@
 module bcstd.data.conv;
 
-import bcstd.datastructures.string, bcstd.util.maths, bcstd.util.errorhandling, bcstd.object, bcstd.meta;
+import bcstd.datastructures.string, bcstd.util.maths, bcstd.util.errorhandling, bcstd.object, bcstd.meta, bcstd.algorithm;
 
 private enum MAX_SIZE_T_STRING_LEN = "18446744073709551615".length;
 alias IntToCharBuffer = char[MAX_SIZE_T_STRING_LEN];
 
 private immutable BASE10_CHARS = "0123456789";
 
-String to(StringT : String, ValueT)(ValueT value)
+String to(StringT : String, ValueT)(auto ref ValueT value)
 {
     static if(__traits(compiles, toBase10(value)))
         return value.toBase10;
+    else static if(is(ValueT == struct))
+    {
+        String output;
+        structToString(value, output);
+        return output;
+    }
+    else static if(is(ValueT : bcstring))
+        return String(value);
+    else static if(is(ValueT == String))
+        return value;
+    else static if(is(ValueT == bool))
+        return value ? String("true") : String("false");
     else static assert(false, "Don't know how to convert '"~ValueT.stringof~"' into a String.");
 }
 ///
 @("to!String")
 unittest
 {
+    static struct S
+    {
+        int a;
+        string b;
+        bool c;
+    }
+
+    static struct SS
+    {
+        string name;
+        S s;
+    }
+
     assert(127.to!String == "127");
+    assert(S(29, "yolo", true).to!String == "S(29, yolo, true)", S(29, "yolo", true).to!String.range.idup);
+    assert(SS("ribena cow", S(69, "swag", false)).to!String == "SS(ribena cow, S(69, swag, false))");
 }
 
 SimpleResult!NumT to(NumT, ValueT)(ValueT value)
@@ -35,6 +62,22 @@ unittest
 {
     assert("69".to!int.assumeValid == 69);
     assert(String("-120").to!byte.assumeValid == -120);
+}
+
+private void structToString(StructT, OutputT)(auto ref StructT value, ref OutputT output)
+if(is(StructT == struct) && isOutputRange!(OutputT, bcstring))
+{
+    output.put(__traits(identifier, StructT));
+    output.put("(");
+    foreach(i, ref v; value.tupleof)
+    {{
+        String s = to!String(v);
+        output.put(s.range);
+
+        static if(i < StructT.tupleof.length-1)
+            output.put(", ");
+    }}
+    output.put(")");
 }
 
 String toBase10(NumT)(NumT num)
