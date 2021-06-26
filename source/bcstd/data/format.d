@@ -50,7 +50,7 @@ unittest
 }
 
 @nogc
-void defaultFormatter(Params...)(scope bcstring spec, scope ref String result, scope ref BcError error, scope ref bool throwError, scope Params params) nothrow
+void defaultFormatter(ResultT, Params...)(scope bcstring spec, scope ref ResultT result, scope ref BcError error, scope ref bool throwError, scope Params params) nothrow
 {
     formatInfoPusher(spec, (info)
     {
@@ -88,7 +88,7 @@ void defaultFormatter(Params...)(scope bcstring spec, scope ref String result, s
 }
 
 @nogc
-private void defaultFormatterSegmentHandler(ParamT)(scope ref String result, const scope FormatSegment segment, scope auto ref ParamT param) nothrow
+private void defaultFormatterSegmentHandler(ResultT, ParamT)(scope ref ResultT result, const scope FormatSegment segment, scope auto ref ParamT param) nothrow
 {
     const formatter = segment.formatter;
     if(formatter is null)
