@@ -27,6 +27,24 @@ SimpleResult!String format(Params...)(scope bcstring spec, scope Params params)
     BcError error;
     bool throwError = false;
 
+    defaultFormatter(spec, result, error, throwError, params);
+
+    if(throwError)
+        return error.result!String;
+
+    return result.result;
+}
+///
+@("format (formatInfoPusher & defaultFormatter by proxy)")
+unittest
+{
+    assert(format("abc").assumeValid == "abc");
+    assert(format("abc {1} {0}", 123, "easy as").assumeValid == "abc easy as 123");
+}
+
+@nogc
+void defaultFormatter(Params...)(scope bcstring spec, scope ref String result, scope ref BcError error, scope ref bool throwError, scope Params params) nothrow
+{
     formatInfoPusher(spec, (info)
     {
         if(throwError)
@@ -48,22 +66,7 @@ SimpleResult!String format(Params...)(scope bcstring spec, scope Params params)
                     static foreach(i; 0..Params.length)
                     {
                         case i:
-                            auto formatter = segment.formatter;
-                            if(formatter is null)
-                            {
-                                static if(is(Params[i] : bcstring) || is(Params[i] == String))
-                                    result.put(params[i]);
-                                else static if(__traits(compiles, to!String(params[i])))
-                                    result.put(to!String(params[i]).range);
-                                else static if(__traits(hasMember, Params[i], "toString"))
-                                {
-                                    auto str = params[i].toString();
-                                    result.put(str);
-                                }
-                                else static assert(false, "Don't know how to default format param of type "~Params[i].stringof);
-                            }
-                            else
-                                assert(false, "TODO");
+                            defaultFormatterSegmentHandler(result, segment, params[i]);
                             break Switch;
                     }
 
@@ -75,21 +78,28 @@ SimpleResult!String format(Params...)(scope bcstring spec, scope Params params)
             }
         )(value);
     });
-
-    if(throwError)
-        return error.result!String;
-
-    return result.result;
 }
-///
-@("format (formatInfoPusher by proxy)")
-unittest
+
+@nogc
+private void defaultFormatterSegmentHandler(ParamT)(scope ref String result, const scope FormatSegment segment, scope auto ref ParamT param) nothrow
 {
-    //assert(format("abc").assumeValid == "abc");
-    assert(format("abc {1} {0}", 123, "easy as").assumeValid == "abc easy as 123");
+    const formatter = segment.formatter;
+    if(formatter is null)
+    {
+        static if(is(ParamT : bcstring) || is(ParamT == String))
+            result.put(param);
+        else static if(__traits(compiles, to!String(param)))
+            result.put(to!String(param).range);
+        else static if(__traits(hasMember, ParamT, "toString"))
+        {
+            auto str = param.toString();
+            result.put(str);
+        }
+        else static assert(false, "Don't know how to default format param of type "~ParamT.stringof);
+    }
+    else
+        assert(false, "TODO");
 }
-
-alias f = format!bcstring;
 
 @nogc
 void formatInfoPusher(scope bcstring format, scope void delegate(SimpleResult!FormatStringInfo info) @nogc nothrow handler) nothrow
