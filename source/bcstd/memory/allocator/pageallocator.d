@@ -133,11 +133,12 @@ struct PageRegion
         if(allocGuardPage)
         {
             DWORD _1;
-            if(!VirtualProtect(ptr+size, this.pageSize, PAGE_READONLY | PAGE_GUARD, &_1))
+            if(!VirtualProtect(ptr, this.pageSize, PAGE_READONLY | PAGE_GUARD, &_1))
                 assert(false, "Que?");
+            alloc.memory = ptr[this.pageSize..this.pageSize+size];
         }
-
-        alloc.memory = ptr[0..size];
+        else
+            alloc.memory = ptr[0..size];
         alloc.hasGuardPage = allocGuardPage;
         alloc.pageCount = pageCount;
         return typeof(return)(alloc);
