@@ -14,7 +14,7 @@ struct PageAllocation
 
 // This allocator doesn't follow the standard allocator API, since it's intended to be used for more
 // specialised purposes rather than general allocations.
-struct PageAllocator
+shared struct PageAllocator
 {
     __gshared @nogc nothrow:
 

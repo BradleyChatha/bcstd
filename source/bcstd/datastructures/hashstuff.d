@@ -166,6 +166,13 @@ struct RobinHoodHashMap(
         return result.value;
     }
 
+    ref inout(ValueT) getAtByRef()(auto ref KeyT key) inout
+    {
+        auto ptr = this.getNodeAt(key);
+        assert(ptr !is null, "Could not find key.");
+        return *ptr.value;
+    }
+
     inout(ValueT) getAtOrDefault()(auto ref KeyT key, auto ref scope return ValueT default_ = ValueT.init) inout
     {
         auto result = this.getNodeAt(key);

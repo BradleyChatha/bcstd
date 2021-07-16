@@ -2,7 +2,7 @@ module bcstd.threading.locks;
 
 import core.atomic : cas;
 
-struct LockBusyCas
+shared struct LockBusyCas
 {
     private bool _lock;
     @disable this(this){}
@@ -32,7 +32,7 @@ struct LockBusyCas
     }
 }
 
-struct Lockable(ValueT, LockT = LockBusyCas)
+shared struct Lockable(ValueT, LockT = LockBusyCas)
 {
     private LockT  _lock;
     private ValueT _value;
@@ -43,6 +43,12 @@ struct Lockable(ValueT, LockT = LockBusyCas)
     {
         this._lock.lock();
         scope(exit) this._lock.unlock();
-        func(this._value);
+
+        // Casting away shared since the given delegate is using it when only
+        // one thread should actually be accessing it.
+        //
+        // This saves the need for `ValueT` to implement a shared interface.
+        auto notShared = cast(ValueT*)&this._value;
+        func(*notShared);
     }
 }

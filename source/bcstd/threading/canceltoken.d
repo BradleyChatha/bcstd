@@ -2,7 +2,7 @@ module bcstd.threading.canceltoken;
 
 import core.atomic;
 
-struct CancelToken
+shared struct CancelToken
 {
     // Put it on the heap/smart pointer.
     // This struct doesn't make too much sense without reference semantics.

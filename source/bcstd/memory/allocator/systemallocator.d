@@ -3,7 +3,7 @@ module bcstd.memory.allocator.systemallocator;
 import bcstd.memory.ptr : MaybeNullPtr, MaybeNullSlice, NotNullSlice, NotNullPtr;
 
 @nogc nothrow
-struct SystemAllocator
+shared struct SystemAllocator
 {
     static immutable string Tag = "system";
 

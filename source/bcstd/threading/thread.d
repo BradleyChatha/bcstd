@@ -42,9 +42,20 @@ struct Thread
     }
 }
 
-Thread runThread(ContextT)(SimpleResult!void function(ContextT context) entry, ContextT context)
+Thread threadRun(ContextT)(SimpleResult!void function(ContextT context) entry, ContextT context)
 {
     return createThreadWithUserContext(entry, context);
+}
+
+bool threadIsCanceled()
+{
+    auto result = false;
+    g_threadStates.access((ref hashmap)
+    {
+        result = hashmap.getPtrUnsafeAt(g_thisThreadId).appClosingToken.isCancelRequested;
+    });
+
+    return result;
 }
 
 package(bcstd) @nogc nothrow:
@@ -66,6 +77,8 @@ void threadingOnAppClosing()
 }
 
 private @nogc nothrow:
+
+ThreadId g_thisThreadId;
 
 extern(C) void rt_moduleTlsCtor();
 extern(C) void rt_moduleTlsDtor();
@@ -111,6 +124,7 @@ version(Windows)
 
             rt_moduleTlsCtor();
             scope(exit) rt_moduleTlsDtor();
+            g_thisThreadId = id;
             
             auto result = realFunc(realContext);
             if(!result.isValid)
@@ -172,7 +186,7 @@ version(Windows)
 unittest
 {
     struct DummyContext{}
-    runThread((DummyContext _)
+    threadRun((DummyContext _)
     {
         return SimpleResult!void.init;
     }, DummyContext.init); 
@@ -182,7 +196,7 @@ unittest
 unittest
 {
     struct DummyContext{}
-    runThread((DummyContext _)
+    threadRun((DummyContext _)
     {
         return raise("This is an error").result!void;
     }, DummyContext.init);
@@ -193,7 +207,7 @@ version(unittest) private int _tlsTest;
 unittest
 {
     _tlsTest = 200;
-    auto t = runThread((int num)
+    auto t = threadRun((int num)
     {
         assert(_tlsTest == 0);
         _tlsTest = num;

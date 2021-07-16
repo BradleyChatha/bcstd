@@ -18,7 +18,7 @@ enum TaskState
 private struct TaskContext
 {
     TypedPtr      userContext;
-    TypedPtr      yieldValue;
+    TypedPtr      taskYieldValue;
     CoroutineFunc entryPoint;
     BcError       error;
     bool          yieldedWithValue;
@@ -46,9 +46,9 @@ struct Task
             this._context.userContext = context.makeTyped;
 
         // TODO: Stack customisation. New PageAllocator means memory is managed a lot better now.
-        this._stack = bcstdCreateStandaloneCoroutineStack();
+        this._stack = coroutineCreateStandaloneStack();
         this._context.entryPoint = func;
-        this._coroutine = bcstdCreateCoroutine(&coroutine, this._stack, &this._context);
+        this._coroutine = coroutineCreate(&coroutine, this._stack, &this._context);
     }
 
     this(ref return scope Task rhs)
@@ -63,7 +63,7 @@ struct Task
 
     private static void coroutine()
     {
-        auto ctx = cast(TaskContext*)bcstdGetCoroutineContext();
+        auto ctx = cast(TaskContext*)coroutineGetContext();
         assert(ctx !is null, "This was not called during a task. Tasks are a more focused layer placed on top of coroutines.");
         assert(ctx.entryPoint !is null, "No/null entrypoint was given.");
         version(D_BetterC)
@@ -73,10 +73,10 @@ struct Task
             try ctx.entryPoint();
             catch(Error e)
             {
-                yieldRaise(e.msg);
+                taskYieldRaise(e.msg);
             }
         }
-        bcstdExitCoroutine();
+        coroutineExit();
     }
 
     ~this()
@@ -93,9 +93,9 @@ struct Task
         this._context.yieldedWithValue = false;
         final switch(this._coroutine.state) with(CoroutineState)
         {
-            case start: bcstdStartCoroutine(this._coroutine); break;
+            case start: coroutineStart(this._coroutine); break;
             case running: assert(false, "This task is already running.");
-            case suspended: bcstdResumeCoroutine(this._coroutine); break;
+            case suspended: coroutineResume(this._coroutine); break;
             case end: assert(false, "This task has finished.");
         }
 
@@ -114,15 +114,15 @@ struct Task
     {
         assert(this.isValid, "This task is in an invalid state.");
         this._state = TaskState.uninit;
-        bcstdDestroyCoroutine(this._coroutine);
-        bcstdDestroyCoroutineStack(this._stack);
+        coroutineDestroy(this._coroutine);
+        coroutineDestroyStack(this._stack);
         this._coroutine = null;
     }
 
     ref T valueAs(alias T)()
     {
         assert(this.hasValue);
-        return *this._context.yieldValue.ptrUnsafeAs!T;
+        return *this._context.taskYieldValue.ptrUnsafeAs!T;
     }
 
     @property @safe
@@ -173,7 +173,7 @@ struct Task
     }
 }
 
-void runTask(T)(ref return Task task, CoroutineFunc func, auto ref T context = null)
+void taskRun(T)(ref return Task task, CoroutineFunc func, auto ref T context = null)
 {
     import bcstd.memory : emplaceCtor;
     emplaceCtor(task, func, context);
@@ -181,40 +181,40 @@ void runTask(T)(ref return Task task, CoroutineFunc func, auto ref T context = n
 }
 
 @nogc nothrow
-void yield()
+void taskYield()
 {
-    bcstdYieldCoroutine();
+    coroutineYield();
 }
 
 @nogc nothrow
-void yieldRaise(BcError error)
+void taskYieldRaise(BcError error)
 {
-    auto ctx = cast(TaskContext*)bcstdGetCoroutineContext();
+    auto ctx = cast(TaskContext*)coroutineGetContext();
     assert(ctx !is null, "This was not called during a task. Tasks are a more focused layer placed on top of coroutines.");
     ctx.error = error;
-    yield();
+    taskYield();
 }
 
-void yieldRaise(string File = __FILE_FULL_PATH__, string Function = __PRETTY_FUNCTION__, string Module = __MODULE__, size_t Line = __LINE__)(
+void taskYieldRaise(string File = __FILE_FULL_PATH__, string Function = __PRETTY_FUNCTION__, string Module = __MODULE__, size_t Line = __LINE__)(
     bcstring message,
     int errorCode = 0
 )
 {
-    yieldRaise(raise!(File, Function, Module, Line)(message, errorCode));
+    taskYieldRaise(raise!(File, Function, Module, Line)(message, errorCode));
 }
 
-void yieldValue(T)(auto ref T value)
+void taskYieldValue(T)(auto ref T value)
 {
-    auto ctx = cast(TaskContext*)bcstdGetCoroutineContext();
+    auto ctx = cast(TaskContext*)coroutineGetContext();
     assert(ctx !is null, "This was not called during a task. Tasks are a more focused layer placed on top of coroutines.");
-    ctx.yieldValue.setByForce(value);
+    ctx.taskYieldValue.setByForce(value);
     ctx.yieldedWithValue = true;
-    yield();
+    taskYield();
 }
 
-void accessTaskContext(alias T, alias Func)()
+void taskAccessContext(alias T, alias Func)()
 {
-    auto ctx = cast(TaskContext*)bcstdGetCoroutineContext();
+    auto ctx = cast(TaskContext*)coroutineGetContext();
     assert(ctx !is null, "This was not called during a task. Tasks are a more focused layer placed on top of coroutines.");
     ctx.userContext.access!T((scope ref T value) { Func(value); });
 }
@@ -223,8 +223,8 @@ void accessTaskContext(alias T, alias Func)()
 unittest
 {
     Task task;
-    runTask(task, (){
-        yield();
+    taskRun(task, (){
+        taskYield();
     });
 
     assert(task.isValid);
@@ -238,12 +238,12 @@ unittest
 {
     Task task;
     int num;
-    runTask(task, (){
-        accessTaskContext!(int*, (scope ref ptr){
+    taskRun(task, (){
+        taskAccessContext!(int*, (scope ref ptr){
             (*ptr)++;
         });
-        yield();
-        accessTaskContext!(int*, (scope ref ptr){
+        taskYield();
+        taskAccessContext!(int*, (scope ref ptr){
             (*ptr)++;
         });
     }, &num);
@@ -257,7 +257,7 @@ unittest
 unittest
 {
     Task task;
-    runTask(task, (){ yieldRaise("error"); });
+    taskRun(task, (){ taskYieldRaise("error"); });
     assert(task.hasEnded && task.hasError);
     assert(task.error.message == "error");
 }
@@ -266,9 +266,9 @@ unittest
 unittest
 {
     Task task;
-    runTask(task, (){
-        yieldValue(1);
-        yieldValue("string");
+    taskRun(task, (){
+        taskYieldValue(1);
+        taskYieldValue("string");
     });
     assert(task.hasYielded && task.hasValue);
     assert(task.valueAs!int == 1);
@@ -287,9 +287,9 @@ unittest
     Task task;
     Task moved;
     int num = 200;
-    runTask(task, (){
-        yield();
-        accessTaskContext!(int*, (scope ref ptr){
+    taskRun(task, (){
+        taskYield();
+        taskAccessContext!(int*, (scope ref ptr){
             assert(*ptr == 200);
             *ptr *= 2;
         });
