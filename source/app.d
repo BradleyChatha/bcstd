@@ -1,0 +1,7 @@
+version(Testing)
+{
+    void main()
+    {
+
+    }
+}

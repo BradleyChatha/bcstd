@@ -1,16 +1,26 @@
-name "bcstd"
-description "A personal betterC library."
+name "libd"
+description "A personal betterC library with no dependency on libc."
 authors "Bradley Chatha"
 copyright "Copyright © 2021, Bradley Chatha"
 license "MIT"
 targetPath "bin"
 targetType "library"
 
-sourceFiles "dep/bcstd_win64.obj" platform="windows"
-sourceFiles "dep/bcstd_sysv.obj"  platform="linux"
+sourceFiles "dep/libd_win64.obj" platform="windows"
+sourceFiles "dep/libd_sysv.obj"  platform="linux"
+
+dflags "--conf=" platform="ldc2"
+dflags "-conf=" platform="dmd"
+lflags "/NODEFAULTLIB" "/ENTRY:main" "OneCore.lib" platform="windows-x86_64"
 
 configuration "default" {
     dflags "-betterC"
+}
+
+configuration "test" {
+    dflags "-betterC"
+    targetType "executable"
+    versions "Testing"
 }
 
 configuration "unittest" {
