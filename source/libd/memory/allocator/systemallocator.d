@@ -59,26 +59,11 @@ version(Windows)
 {
     @nogc nothrow:
 
-    import runtime.system.windows : HANDLE, DWORD, SIZE_T, LPVOID, BOOL;
-
-    enum HeapAllocFlag : DWORD
-    {
-        none = 0,
-        HEAP_NO_SERIALISE = 1,
-        HEAP_GENERATE_EXCEPTIONS = 4,
-        HEAP_ZERO_MEMORY = 8,
-        HEAP_REALLOC_IN_PLACE_ONLY = 16,
-    }
-
-    extern(Windows) HANDLE GetProcessHeap();
-    extern(Windows) LPVOID HeapAlloc(HANDLE hHeap, HeapAllocFlag dwFlags, SIZE_T dwBytes);
-    extern(Windows) BOOL HeapFree(HANDLE hHeap, DWORD _, LPVOID lpMem);
-    extern(Windows) LPVOID HeapReAlloc(HANDLE hHeap, HeapAllocFlag dwFlags, LPVOID lpMem, SIZE_T dwBytes);
-    extern(Windows) DWORD GetExceptionCode();
+    import runtime.system.windows;
     
     T* allocImpl(T)(size_t amount)
     {
-        return cast(T*)HeapAlloc(GetProcessHeap(), HeapAllocFlag.HEAP_ZERO_MEMORY, T.sizeof * amount);
+        return cast(T*)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, T.sizeof * amount);
     }
 
     bool freeImpl(T)(T* ptr)
@@ -88,7 +73,7 @@ version(Windows)
 
     T* reallocImpl(T)(T* ptr, size_t fromAmount, size_t toAmount)
     {
-        return cast(T*)HeapReAlloc(GetProcessHeap(), HeapAllocFlag.HEAP_ZERO_MEMORY, ptr, T.sizeof * toAmount);
+        return cast(T*)HeapReAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, ptr, T.sizeof * toAmount);
     }
 }
 else // Default to libc for platforms without specific support.

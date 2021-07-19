@@ -11,10 +11,12 @@ template _d_cmain()
 
     extern(C)
     {
+        int _Dmain(char[][] args);
+
         int main(int argc, char **argv)
         {
             _d_preInit();
-            return -1;
+            return _Dmain(null);
         }
     }
 }

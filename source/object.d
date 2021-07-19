@@ -2,6 +2,7 @@ module object;
 
 // Reminder: my only target is x86_64 
 public import runtime.primitives.equality : __equals;
+public import runtime.primitives.memory : _memset32;
 public import runtime.entrypoint : _d_cmain;
 
 alias string    = immutable(char)[];

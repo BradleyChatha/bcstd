@@ -1,7 +1,7 @@
 version(Testing)
 {
-    void main()
+    int main()
     {
-
+        return 0;
     }
 }
