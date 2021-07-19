@@ -23,6 +23,9 @@ struct SimpleResult(T)
     static if(!is(T == void))
     private T       _value;
 
+    @disable
+    this(this){}
+
     static if(!is(T == void))
     this()(auto ref T value)
     {

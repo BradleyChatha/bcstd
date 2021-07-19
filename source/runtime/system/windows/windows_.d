@@ -61,6 +61,7 @@ alias INT8 = byte;
 alias INT16 = short;
 alias INT32 = int;
 alias INT64 = long;
+alias LARGE_INTEGER = long;
 alias LANGID = WORD;
 alias LCID = DWORD;
 alias LCTYPE = DWORD;
@@ -101,6 +102,7 @@ alias PDWORD64 = DWORD64*;
 alias PFLOAT = FLOAT*;
 alias PHALF_PTR = HALF_PTR*;
 alias PHANDLE = HANDLE*;
+alias PLARGE_INTEGER = LARGE_INTEGER*;
 // todo...
 alias PVOID = void*;
 alias QWORD = ulong;
@@ -121,6 +123,14 @@ alias WCHAR = wchar;
 alias WORD = ushort;
 
 alias FARPROC = int function();
+
+enum : DWORD
+{
+    GENERIC_ALL = 1 << 28,
+    GENERIC_EXECUTE = 1 << 29,
+    GENERIC_WRITE = 1 << 30,
+    GENERIC_READ = 1 << 31
+}
 
 /++ liboaderapi.h ++/
 alias DLL_DIRECTORY_COOKIE = HANDLE;
@@ -231,3 +241,102 @@ struct SYSTEM_INFO {
 }
 alias LPSYSTEM_INFO = SYSTEM_INFO*;
 void GetSystemInfo(LPSYSTEM_INFO lpSystemInfo);
+
+/++ fileapi.h ++/
+enum HANDLE INVALID_HANDLE_VALUE = cast(HANDLE)-1;
+struct SECURITY_ATTRIBUTES {
+    DWORD  nLength;
+    LPVOID lpSecurityDescriptor;
+    BOOL   bInheritHandle;
+}
+struct OVERLAPPED {
+    ULONG_PTR Internal;
+    ULONG_PTR InternalHigh;
+    union {
+        struct {
+        DWORD Offset;
+        DWORD OffsetHigh;
+        }
+        PVOID Pointer;
+    }
+    HANDLE    hEvent;
+}
+alias LPSECURITY_ATTRIBUTES = SECURITY_ATTRIBUTES*;
+alias LPOVERLAPPED = OVERLAPPED*;
+enum : DWORD
+{
+    FILE_SHARE_DELETE = 0x00000004,
+    FILE_SHARE_READ = 0x00000001,
+    FILE_SHARE_WRITE = 0x00000002,
+
+    CREATE_ALWAYS = 2,
+    CREATE_NEW = 1,
+    OPEN_ALWAYS = 4,
+    OPEN_EXISTING = 3,
+    TRUNCATE_EXISTING = 5,
+
+    FILE_ATTRIBUTE_ARCHIVE = 32,
+    FILE_ATTRIBUTE_ENCRYPTED = 16384,
+    FILE_ATTRIBUTE_HIDDEN = 2,
+    FILE_ATTRIBUTE_NORMAL = 128,
+    FILE_ATTRIBUTE_OFFLINE = 4096,
+    FILE_ATTRIBUTE_READONLY = 1,
+    FILE_ATTRIBUTE_SYSTEM = 4,
+    FILE_ATTRIBUTE_TEMPORARY = 256,
+    FILE_FLAG_BACKUP_SEMANTICS = 0x02000000,
+    FILE_FLAG_DELETE_ON_CLOSE = 0x04000000,
+    FILE_FLAG_NO_BUFFERING = 0x20000000,
+    FILE_FLAG_OPEN_NO_RECALL = 0x00100000,
+    FILE_FLAG_OPEN_REPARSE_POINT = 0x00200000,
+    FILE_FLAG_OVERLAPPED = 0x40000000,
+    FILE_FLAG_POSIX_SEMANTICS = 0x01000000,
+    FILE_FLAG_RANDOM_ACCESS = 0x10000000,
+    FILE_FLAG_SESSION_AWARE = 0x00800000,
+    FILE_FLAG_SEQUENTIAL_SCAN = 0x08000000,
+    FILE_FLAG_WRITE_THROUGH = 0x80000000,
+}
+HANDLE CreateFileA(
+    LPCSTR                lpFileName,
+    DWORD                 dwDesiredAccess,
+    DWORD                 dwShareMode,
+    LPSECURITY_ATTRIBUTES lpSecurityAttributes,
+    DWORD                 dwCreationDisposition,
+    DWORD                 dwFlagsAndAttributes,
+    HANDLE                hTemplateFile
+);
+BOOL WriteFile(
+    HANDLE       hFile,
+    LPCVOID      lpBuffer,
+    DWORD        nNumberOfBytesToWrite,
+    LPDWORD      lpNumberOfBytesWritten,
+    LPOVERLAPPED lpOverlapped
+);
+BOOL GetFileSizeEx(
+    HANDLE         hFile,
+    PLARGE_INTEGER lpFileSize
+);
+BOOL SetFilePointerEx(
+    HANDLE         hFile,
+    LARGE_INTEGER  liDistanceToMove,
+    PLARGE_INTEGER lpNewFilePointer,
+    DWORD          dwMoveMethod
+);
+BOOL ReadFile(
+    HANDLE       hFile,
+    LPVOID       lpBuffer,
+    DWORD        nNumberOfBytesToRead,
+    LPDWORD      lpNumberOfBytesRead,
+    LPOVERLAPPED lpOverlapped
+);
+
+/++ handleapi.h ++/
+BOOL CloseHandle(HANDLE hObject);
+
+/++ errhandlingapi.h ++/
+enum : DWORD
+{
+    ERROR_FILE_NOT_FOUND = 2,
+    ERROR_FILE_EXISTS = 80,
+    ERROR_ALREADY_EXISTS = 183,
+}
+DWORD GetLastError();

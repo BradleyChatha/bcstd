@@ -4,4 +4,5 @@ public import
     libd.util.errorhandling,
     libd.util.maths,
     libd.util.cpuid,
-    libd.util.bitwise;
+    libd.util.bitwise,
+    libd.util.ternary;

@@ -15,6 +15,7 @@ template _d_cmain()
 
         int main(int argc, char **argv)
         {
+            import runtime.primitives.tls;
             _d_preInit();
             return _Dmain(null);
         }

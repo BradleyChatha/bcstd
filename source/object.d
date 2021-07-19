@@ -5,6 +5,8 @@ public import runtime.primitives.equality : __equals;
 public import runtime.primitives.memory : _memset32;
 public import runtime.entrypoint : _d_cmain;
 
+public import libd.datastructures.string, libd.util.errorhandling;
+
 alias string    = immutable(char)[];
 alias bcstring  = const(char)[];
 alias size_t    = ulong;
@@ -21,8 +23,4 @@ extern(C) void _d_assertp()
 extern(C) void _assert()
 {
     
-}
-
-void opAssign(T)(ref T a, ref T b)
-{
 }
