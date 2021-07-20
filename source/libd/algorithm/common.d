@@ -53,7 +53,7 @@ if(isSlice!T)
 }
 
 pragma(inline, true)
-ElementType!T front(T)(scope auto ref inout(T) array)
+inout(ElementType!T) front(T)(scope auto ref inout(T) array)
 if(isSlice!T)
 {
     return array[0];

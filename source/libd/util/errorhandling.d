@@ -7,9 +7,9 @@ import  libd.datastructures.string, libd.data.conv, libd.memory, libd.meta;
 
 struct BcError
 {
-    string file;
-    string function_;
-    string module_;
+    String file;
+    String function_;
+    String module_;
     size_t line;
     int errorCode; // Function/Library specific.
     String message;
@@ -96,9 +96,9 @@ BcError raise(string File = __FILE_FULL_PATH__, string Function = __PRETTY_FUNCT
 )
 {
     auto error = BcError(
-        File,
-        Function,
-        Module,
+        String(File),
+        String(Function),
+        String(Module),
         Line,
         errorCode
     );
@@ -162,9 +162,9 @@ void formatError(OutputRange)(ref OutputRange output, BcError error)
     );
 
     output.put(part1);
-    output.put(part2); output.put(error.file);                      output.put('\n');
-    output.put(part3); output.put(error.module_);                   output.put('\n');
-    output.put(part4); output.put(error.function_);                 output.put('\n');
+    output.put(part2); output.put(error.file.range);                output.put('\n');
+    output.put(part3); output.put(error.module_.range);             output.put('\n');
+    output.put(part4); output.put(error.function_.range);           output.put('\n');
     output.put(part5); output.put(error.line.to!String.range);      output.put('\n');
     output.put(part6); output.put(error.errorCode.to!String.range); output.put('\n');
     output.put(part7); output.put(error.message.sliceUnsafe);

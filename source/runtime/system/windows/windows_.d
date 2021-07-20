@@ -424,3 +424,6 @@ BOOL GetConsoleMode(
     @_In_  HANDLE  hConsoleHandle,
     @_Out_ LPDWORD lpMode
 );
+
+/++ processenv.h ++/
+LPSTR GetCommandLineA();

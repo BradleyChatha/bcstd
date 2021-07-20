@@ -55,10 +55,23 @@ struct String
 
     @nogc nothrow:
 
+    @trusted
+    this(string str)
+    {
+        this = str;
+    }
+
     @trusted // Bounds checking + always confirming pointer validity *should* make this safe.
     this(bcstring str)
     {
         this = str;
+    }
+
+    this(const char* ptr)
+    {
+        import runtime.dynamicfuncs : strlen;
+        const length = strlen(ptr);
+        this.put(ptr[0..length]);
     }
 
     this(this) @trusted
@@ -130,6 +143,13 @@ struct String
     {
         char[] fakeArray = (&ch)[0..1];
         this.put(fakeArray);
+    }
+
+    void put(Range)(Range r)
+    if(!is(Range : bcstring))
+    {
+        foreach(value; r)
+            this.put(value);
     }
 
     @trusted

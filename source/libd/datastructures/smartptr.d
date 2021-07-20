@@ -403,7 +403,10 @@ struct TypedPtrBase(alias AllocT = SystemAllocator)
     ~this()
     {
         if(this._ptr !is null)
+        {
             this._alloc.dispose(this._ptr.maybeNull!(AllocT.Tag));
+            this._ptr = null;
+        }
     }
 
     @trusted // Because ptrUnsafeAs is not @safe. It technically *is* @safe by itself due to the safety checks, but the user can use it to perform @system behaviour.

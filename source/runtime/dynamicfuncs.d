@@ -3,21 +3,24 @@ module runtime.dynamicfuncs;
 // Functions that are dynamically selected at runtime, depending on the CPU.
 
 private alias memequalT = extern(C) bool function(const scope void* a, const scope void* b, size_t amount) @nogc nothrow;
+private alias strlenT = extern(C) size_t function(const scope char* str) @nogc nothrow;
 
 __gshared memequalT memequal;
+__gshared strlenT strlen;
 
 void _d_dynamicFuncsInit()
 {
-    selectMemequal();
+    select();
 
     assert(memequal !is null);
 }
 
 private:
 
-void selectMemequal()
+void select()
 {
     memequal = &memequalSlow;
+    strlen = &strlenSlow;
 }
 
 @nogc nothrow
@@ -35,4 +38,14 @@ extern(C) bool memequalSlow(const scope void* a, const scope void* b, size_t amo
     }
 
     return true;
+}
+
+@nogc nothrow
+extern(C) size_t strlenSlow(const scope char* str)
+{
+    const start = str;
+    auto strMut = cast(char*)str;
+    while(*strMut != '\0')
+        strMut++;
+    return cast(size_t)(strMut - start);
 }

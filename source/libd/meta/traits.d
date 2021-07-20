@@ -265,7 +265,7 @@ struct TypeId
 
     bool opEquals(const TypeId other) const @safe @nogc nothrow
     {
-        return (this.fqnHash == other.fqnHash && __equals(this.fqn, other.fqn));
+        return this.fqnHash == other.fqnHash;
     }
 
     size_t toHash() const @safe @nogc nothrow

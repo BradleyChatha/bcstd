@@ -449,8 +449,6 @@ unittest
     {
         if(h.length != i)
             assert(false);
-        if(i == 0x027d)
-            int d = 0;
         h.put(i, i);
     }
     assert(h.length == AMOUNT);

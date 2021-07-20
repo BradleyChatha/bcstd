@@ -1,6 +1,6 @@
 module libd.data.conv;
 
-import libd.datastructures.string, libd.util.maths, libd.util.errorhandling,  libd.meta, libd.algorithm;
+import libd.datastructures.string, libd.util.maths, libd.util.errorhandling, libd.meta, libd.algorithm, libd.console.ansi;
 
 private enum MAX_SIZE_T_STRING_LEN = "18446744073709551615".length;
 alias IntToCharBuffer = char[MAX_SIZE_T_STRING_LEN];
@@ -13,6 +13,12 @@ String to(StringT : String, ValueT)(auto ref ValueT value)
         return value ? String("true") : String("false");
     else static if(__traits(compiles, toBase10(value)))
         return value.toBase10;
+    else static if(is(ValueT == AnsiTextLite))
+    {
+        String output;
+        ansiToString(value, output);
+        return output;
+    }
     else static if(is(ValueT == struct))
     {
         String output;
@@ -245,3 +251,8 @@ void pointerToString(T, OutputT)(T* pointer, ref OutputT output)
     IntToCharBuffer buffer;
     output.put(toBase10(cast(size_t)pointer));
 } 
+
+void ansiToString(OutputT)(AnsiTextLite ansi, ref OutputT output)
+{
+    output.put(ansi.toRange());
+}

@@ -1,20 +1,14 @@
 version(Testing)
 {
-    int main(string[])
+    int main()
     {
-        import libd.io, libd.console.io, libd.data.coff_pe;
+        import libd.io, libd.console.io, libd.data.coff_pe, libd.testing;
+        import runtime.entrypoint;
 
-        auto bytes = fsRead("./libd.exe").assumeValid;
-        auto coff = coffpeParseHeader((*bytes.ptrUnsafe)[0..$]);
-        if(!coff.isValid)
-        {
-            displayError(coff.error);
-            return -1;
-        }
+        Array!TestCase cases;
+        testGetLibdCases(cases);
+        testRunner(g_programArgs[0..$], cases);
 
-        consoleWriteln(coff.value);
-        foreach(section; coff.value.sectionTables.ptrUnsafe.range)
-            consoleWriteln(section);
         return 0;
     }
 }

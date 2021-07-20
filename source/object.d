@@ -16,13 +16,34 @@ alias ptrdiff_t = long;
 
 extern(C) void _d_assert(const char[] message, uint line)
 {
+    assertImpl(String(message), String("Unknown"), line);
 }
 
 extern(C) void _d_assertp()
 {
+    assertImpl(String("Unknown"), String("Unkown"), 0);
 }
 
-extern(C) void _assert(char*, char*, uint)
+extern(C) void _assert(char* message, char* file, uint line)
 {
-    
+    assertImpl(String(message), String(file), line);
+}
+
+private void assertImpl(String message, String file, uint line)
+{
+    version(unittest)
+    {
+        import libd.testing.runner, libd.async;
+        if(!g_testRunnerRunning)
+            return;
+
+        taskYieldRaise(BcError(
+            file,
+            String("Unknown"),
+            String("Unknown"),
+            line,
+            0,
+            message
+        ));
+    }
 }
