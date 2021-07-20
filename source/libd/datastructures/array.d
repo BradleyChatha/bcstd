@@ -5,7 +5,6 @@ import libd.memory.ptr;
 import libd.meta.traits : isCopyable;
 import libd.datastructures.growth;
 
-@nogc nothrow 
 struct Array(alias T, alias AllocT = SystemAllocator, alias Grow = DefaultGrowth)
 {
     // Functions templated to infer attributes from the allocator as well as T's dtor, postblit, and copy ctor attributes.
@@ -16,6 +15,8 @@ struct Array(alias T, alias AllocT = SystemAllocator, alias Grow = DefaultGrowth
     private size_t                       _inUse;
 
     @disable this(this) {}
+
+    @nogc nothrow:
 
     this()(AllocatorWrapperOf!AllocT alloc)
     {
@@ -91,7 +92,7 @@ struct Array(alias T, alias AllocT = SystemAllocator, alias Grow = DefaultGrowth
     @property @trusted // User trust required to not escape slice outside of its lifetime.
     inout(T)[] range() inout
     {
-        return this._slice;
+        return this._slice[0..this.length];
     }
 
     @property
@@ -171,8 +172,9 @@ struct Array(alias T, alias AllocT = SystemAllocator, alias Grow = DefaultGrowth
         {
             static if(isCopyable!T)
             {
-                T init = T.init;
-                this._slice[this._inUse..newAmount] = init;
+                T initValue;
+                foreach(ref value; this._slice[this._inUse..newAmount])
+                    value = initValue;
             }
             else
             {

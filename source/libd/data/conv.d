@@ -23,6 +23,26 @@ String to(StringT : String, ValueT)(auto ref ValueT value)
         return String(value);
     else static if(is(ValueT == String))
         return value;
+    else static if(is(ValueT : T[], T))
+    {
+        // TEMP
+        String str;
+        str.put('[');
+        foreach(element; value)
+        {
+            str.put(element.to!String);
+            str.put(", ");
+        }
+        str.put(']');
+
+        return str;
+    }
+    else static if(is(ValueT : T*, T))
+    {
+        String output;
+        pointerToString(value, output);
+        return output;
+    }
     else static assert(false, "Don't know how to convert '"~ValueT.stringof~"' into a String.");
 }
 ///
@@ -104,8 +124,9 @@ unittest
     assert((cast(byte)-128).toBase10!byte == "-128");
 }
 
-char[] toBase10(NumT)(NumT num, scope ref return IntToCharBuffer buffer)
+char[] toBase10(NumT)(NumT num_, scope ref return IntToCharBuffer buffer)
 {
+    Unqual!NumT num = num_;
     size_t cursor = buffer.length-1;
     if(num == 0)
     {
@@ -218,3 +239,9 @@ unittest
     assert(!fromBase10!uint("-20").isValid);
     assert(fromBase10!int("-231").assumeValid == -231);
 }
+
+void pointerToString(T, OutputT)(T* pointer, ref OutputT output)
+{
+    IntToCharBuffer buffer;
+    output.put(toBase10(cast(size_t)pointer));
+} 

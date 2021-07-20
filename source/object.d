@@ -3,9 +3,11 @@ module object;
 // Reminder: my only target is x86_64 
 public import runtime.primitives.equality : __equals;
 public import runtime.primitives.memory : _memset32;
+public import runtime.primitives.move : __ArrayDtor;
 public import runtime.entrypoint : _d_cmain;
+public import libd.datastructures.string, libd.datastructures.array, libd.datastructures.hashstuff, libd.util.errorhandling;
 
-public import libd.datastructures.string, libd.util.errorhandling;
+extern(C) int _fltused = 0; // not a fucking clue.
 
 alias string    = immutable(char)[];
 alias bcstring  = const(char)[];

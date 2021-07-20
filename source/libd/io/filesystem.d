@@ -126,6 +126,23 @@ SimpleResult!void fsDelete(const char[] path)
     return fsDeleteImpl(path);
 }
 
+SimpleResult!(Shared!(Array!ubyte)) fsRead(const char[] file)
+{
+    auto result = fsOpen(file, FileOpenMode.openExisting, FileUsage.read);
+    auto array  = Array!ubyte.init;
+
+    if(!result.isValid)
+        return typeof(return)(result.error);
+
+    auto ptr = result.value;
+    auto stream = ptr.ptrUnsafe;
+
+    array.length = stream.getSize().value;
+    stream.read(array[0..$]);
+
+    return typeof(return)(makeShared(array));
+}
+
 version(Windows)
 {
     import runtime.system.windows;

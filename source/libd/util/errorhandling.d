@@ -17,14 +17,22 @@ struct BcError
 
 struct SimpleResult(T)
 {
-    private bool    _isValid;
+    static if(is(T == void))
+        private bool _isValid = true;
+    else
+        private bool _isValid = false;
     private BcError _error;
 
     static if(!is(T == void))
     private T       _value;
 
-    @disable
-    this(this){}
+    static if(__traits(hasCopyConstructor, T))
+    {
+        @disable
+        this(this){}
+    }
+
+    @nogc nothrow:
 
     static if(!is(T == void))
     this()(auto ref T value)
@@ -116,10 +124,10 @@ unittest
 
     assert(a.assumeValid == 69);
 
-    bool threw;
-    try b.assumeValid();
-    catch(Error e) threw = true;
-    assert(threw);
+    // bool threw;
+    // try b.assumeValid();
+    // catch(Error e) threw = true;
+    // assert(threw);
 }
 
 void throwError(BcError error)

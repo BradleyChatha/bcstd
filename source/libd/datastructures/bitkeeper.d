@@ -163,8 +163,8 @@ struct BitKeeper
 @("BitKeeper")
 unittest
 {
-    auto buffer = new ubyte[3];
-    auto bits = BitKeeper(buffer, 3*8);
+    ubyte[3] buffer;
+    auto bits = BitKeeper(buffer[0..$], 3*8);
 
     // NOTE: User code can't manually create BitKeeperSlices like the unittest can.
 

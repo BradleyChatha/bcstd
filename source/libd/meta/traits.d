@@ -102,13 +102,13 @@ unittest
 {
     int a;
     static void f(){}
-    auto d = (){ a = 0; };
+    scope d = (){ a = 0; };
 
     static assert(isSomeFunction!f);
     static assert(isSomeFunction!d);
 }
 
-enum isCopyable(alias T) = is(typeof({ T t; T t2; t = t2; }));
+enum isCopyable(alias T) = __traits(isCopyable, T);
 ///
 @("isCopyable")
 unittest
@@ -310,6 +310,14 @@ unittest
 {
     static assert(is(UnsignedOf!byte == ubyte));
     static assert(is(UnsignedOf!ubyte == ubyte));
+}
+
+template Unqual(T : const U, U)
+{
+    static if (is(U == shared V, V))
+        alias Unqual = V;
+    else
+        alias Unqual = U;
 }
 
 /+++++++++++++++++ STOLEN FROM PHOBOS +++++++++++++++++++/

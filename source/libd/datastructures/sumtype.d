@@ -159,23 +159,22 @@ unittest
     {
         int a;
         string b;
-        Object c;
     }
 
     alias Sum = SumType!U;
 
     static assert(Sum.kindOf!int    == Sum.Kind.a);
-    static assert(Sum.kindOf!Object == Sum.Kind.c);
+    static assert(Sum.kindOf!string == Sum.Kind.b);
 
     auto value = Sum(20);
     assert(value.kind == Sum.Kind.a && value.kind == Sum.kindOf!int);
     assert(value.contains!int);
 
-    bool threw = false;
-    try value.get!string();
-    catch(Error error)
-        threw = true;
-    assert(threw);
+    // bool threw = false;
+    // try value.get!string();
+    // catch(Error error)
+    //     threw = true;
+    // assert(threw);
 
     assert(value.get!int == 20);
     value = "lol";
@@ -188,7 +187,7 @@ unittest
     {
         sum.visit!(
             (ref int i) { i *= 2; },
-            (ref string b) { b ~= "lol"; },
+            (ref string b) { b = "lel"; },
             () { unhandled++; }
         )(sum);
     }
@@ -199,11 +198,11 @@ unittest
 
     value = "lol";
     visitTest(value);
-    assert(value.get!string == "lollol");
+    assert(value.get!string == "lel");
 
-    value = new Object();
-    visitTest(value);
-    assert(unhandled == 1);
+    // value = new Object();
+    // visitTest(value);
+    // assert(unhandled == 1);
 }
 
 @("SumType - PostBlit")

@@ -94,12 +94,7 @@ private void defaultFormatterSegmentHandler(ResultT, ParamT)(scope ref ResultT r
     if(formatter is null)
     {
         static if(__traits(compiles, result.put(param)) && !is(ParamT : const bool))
-            result.put(param);        
-        else static if(__traits(hasMember, ParamT, "toString"))
-        {
-            auto str = param.toString();
-            result.put(str);
-        }
+            result.put(param);
         else static if(__traits(compiles, to!String(param)))
             result.put(to!String(param).range);
         else static assert(false, "Don't know how to default format param of type "~ParamT.stringof);

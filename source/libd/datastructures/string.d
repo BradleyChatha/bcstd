@@ -82,6 +82,13 @@ struct String
         this.disposeBigStringIfExists();
         this._store = Store.init;
     }
+
+    @trusted
+    void putMany(Params...)(scope Params params)
+    {
+        foreach(param; params)
+            this.put(param);
+    }
     
     @trusted // This is technically safe by itself due to all the checks, but `chars` might point to bad memory. Can't express that in D though.
     void put(scope bcstring chars)
@@ -113,7 +120,7 @@ struct String
     }
 
     @trusted
-    void put(scope const ref String str)
+    void put()(scope const auto ref String str)
     {
         this.put(str.sliceUnsafe);
     }

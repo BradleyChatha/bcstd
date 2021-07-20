@@ -95,8 +95,8 @@ if(ctassert!(isSimpleAllocator!AllocT, "Type `"~AllocT.stringof~"` is not an all
         {
             static if(isCopyable!T)
             {
-                T init = T.init;
-                ptr[oldLen..oldLen+diff] = init;
+                foreach(ref value; ptr[oldLen..oldLen+diff])
+                    value = T.init;
             }
             else
             {

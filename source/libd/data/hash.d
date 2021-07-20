@@ -154,15 +154,13 @@ struct HashMurmur3_32(uint Seed)
 @("Murmur3_32")
 unittest
 {
-    import std.format : format;
-
     const key      = "The quick brown fox jumps over the lazy dog.";
     const seed     = 0;
     const expected = 0xD5C48BFC;
 
     HashMurmur3_32!seed hash;
     hash.put(key);
-    assert(hash.value == expected, "Expected %X but got %X".format(expected, hash.value));
+    assert(hash.value == expected);
 }
 
 alias Murmur3_32 = HashMurmur3_32!104_729; // Constant taken from the internet somewhere.

@@ -2,14 +2,19 @@ version(Testing)
 {
     int main(string[])
     {
-        import libd.io, libd.console.io;
+        import libd.io, libd.console.io, libd.data.coff_pe;
 
-        static struct S
+        auto bytes = fsRead("./libd.exe").assumeValid;
+        auto coff = coffpeParseHeader((*bytes.ptrUnsafe)[0..$]);
+        if(!coff.isValid)
         {
-            int a;
-            string b;
+            displayError(coff.error);
+            return -1;
         }
 
+        consoleWriteln(coff.value);
+        foreach(section; coff.value.sectionTables.ptrUnsafe.range)
+            consoleWriteln(section);
         return 0;
     }
 }

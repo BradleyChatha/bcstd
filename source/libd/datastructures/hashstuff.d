@@ -61,16 +61,16 @@ struct RobinHoodHashMap(
          || !this.putInto(this._array, key, value, alreadyExists, wasSwap, currKey, currValue) // failed insertion
         )
         {
-            import core.stdc.math : log2, ceil; // As if I know how to write log2 myself ;^)
+            import libd.util.maths : log2, ceilToInt;
 
             typeof(_array) nextArray;
             const oldLength = this._length;
             while(true)
             {
                 const nextPrime    = nextPrimeSize(this._primeIndex);
-                const nextLimit    = cast(ubyte)log2(cast(double)nextPrime);
+                const nextLimit    = cast(ubyte)log2(nextPrime);
                 const nextRealSize = nextPrime + nextLimit;
-                const nextMaxSize  = cast(size_t)(ceil(cast(double)nextPrime * maxLoadFactor));
+                const nextMaxSize  = ceilToInt!size_t(cast(double)nextPrime * maxLoadFactor);
                 this._probeLimit   = nextLimit;
                 this._fakeCapacity = nextPrime;
                 this._fakeMaxLoadCapacity = nextMaxSize;
