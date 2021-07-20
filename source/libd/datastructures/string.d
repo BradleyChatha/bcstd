@@ -119,6 +119,13 @@ struct String
     }
 
     @trusted
+    void put(char ch)
+    {
+        char[] fakeArray = (&ch)[0..1];
+        this.put(fakeArray);
+    }
+
+    @trusted
     bool opEquals(scope bcstring other) const
     {
         return __equals(this.sliceUnsafe, other);

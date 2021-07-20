@@ -79,6 +79,14 @@ BcError raise(string File = __FILE_FULL_PATH__, string Function = __PRETTY_FUNCT
     int errorCode = 0
 )
 {
+    return raise(String(message), errorCode);
+}
+
+BcError raise(string File = __FILE_FULL_PATH__, string Function = __PRETTY_FUNCTION__, string Module = __MODULE__, size_t Line = __LINE__)(
+    String message,
+    int errorCode = 0
+)
+{
     auto error = BcError(
         File,
         Function,
@@ -86,7 +94,7 @@ BcError raise(string File = __FILE_FULL_PATH__, string Function = __PRETTY_FUNCT
         Line,
         errorCode
     );
-    error.message = message[0..$];
+    error.message = message;
 
     return error;
 }
@@ -159,10 +167,11 @@ void formatError(OutputRange)(ref OutputRange output, BcError error)
 void displayError(BcError error)
 {
     import libd.datastructures : Array;
+    import libd.console.io;
 
     Array!char output;
     formatError(output, error);
-    // printf("%s\n", output[].ptr);
+    consoleWriteln(output[0..$]);
 }
 
 void bcAssert(string File = __FILE_FULL_PATH__, string Function = __PRETTY_FUNCTION__, string Module = __MODULE__, size_t Line = __LINE__)(

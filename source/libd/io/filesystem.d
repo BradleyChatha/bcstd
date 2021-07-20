@@ -36,7 +36,8 @@ struct FileStream
 
     @nogc nothrow:
 
-    private this(FileT file, FileUsage usage)
+    @("not for public use")
+    this(FileT file, FileUsage usage)
     {
         this._file = file;
         this._usage = usage;
@@ -45,16 +46,21 @@ struct FileStream
     ~this()
     {
         if(this._file)
+        {
             CloseHandle(this._file);
+            this._file = null;
+        }
     }
 
     SimpleResult!size_t write(const void[] data)
     {
+        if(!this.isOpen) return typeof(return)(raise("This FileStream isn't open."));
         return fileWriteImpl(this._file, data);
     }
 
     SimpleResult!size_t read(scope void[] data)
     {
+        if(!this.isOpen) return typeof(return)(raise("This FileStream isn't open."));
         return fileReadImpl(this._file, data);
     }
     
@@ -70,16 +76,19 @@ struct FileStream
 
     SimpleResult!size_t getPosition()
     {
+        if(!this.isOpen) return typeof(return)(raise("This FileStream isn't open."));
         return fileGetPositionImpl(this._file);
     }
 
     SimpleResult!void setPosition(size_t position)
     {
+        if(!this.isOpen) return typeof(return)(raise("This FileStream isn't open."));
         return fileSetPositionImpl(this._file, position);
     }
 
     SimpleResult!size_t getSize()
     {
+        if(!this.isOpen) return typeof(return)(raise("This FileStream isn't open."));
         return fileGetSizeImpl(this._file);
     }
     
@@ -99,12 +108,22 @@ struct FileStream
     }
 }
 
-SimpleResult!(Shared!FileStream) fileOpen(const char[] file, FileOpenMode mode, FileUsage usage)
+SimpleResult!(Shared!FileStream) fsOpen(const char[] file, FileOpenMode mode, FileUsage usage)
 {
     auto result = fileOpenImpl(file, mode, usage);
     if(!result.isValid)
         return typeof(return)(result.error());
     return typeof(return)(makeShared(FileStream(result.value, usage)));
+}
+
+bool fsExists(const char[] path)
+{
+    return fsExistsImpl(path);
+}
+
+SimpleResult!void fsDelete(const char[] path)
+{
+    return fsDeleteImpl(path);
 }
 
 version(Windows)
@@ -229,5 +248,22 @@ version(Windows)
             return typeof(return)(raise("TODO", GetLastError()));
 
         return typeof(return)(cast(size_t)read);
+    }
+
+    bool fsExistsImpl(const char[] path)
+    {
+        String zeroTerm = path;
+        return cast(bool)PathFileExistsA(zeroTerm[0..$].ptr);
+    }
+
+    SimpleResult!void fsDeleteImpl(const char[] path)
+    {
+        String zeroTerm = path;
+        const result = DeleteFileA(zeroTerm[0..$].ptr);
+        
+        if(!result)
+            return typeof(return)(raise(GetLastErrorAsString()));
+
+        return typeof(return)();
     }
 }

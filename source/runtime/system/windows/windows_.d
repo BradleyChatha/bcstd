@@ -3,8 +3,26 @@ module runtime.system.windows.windows_;
 version(Windows):
 extern (Windows) @nogc nothrow:
 
+/++ HELPERS ++/
+String GetLastErrorAsString()
+{
+    char[1024] buffer;
+    const error = GetLastError();
+    const length = FormatMessageA(
+        FORMAT_MESSAGE_FROM_SYSTEM,
+        null,
+        error,
+        0,
+        buffer.ptr,
+        buffer.length,
+        null
+    );
+    return String(buffer[0..length]);
+}
+
 /++ stuff to emulate things like _In, _Out, etc ++/
 struct _Frees_ptr_opt_{}
+struct _In_ {}
 
 /++A bunch of types++/
 alias BOOL = int;
@@ -328,6 +346,12 @@ BOOL ReadFile(
     LPDWORD      lpNumberOfBytesRead,
     LPOVERLAPPED lpOverlapped
 );
+BOOL PathFileExistsA(
+    LPCSTR pszPath
+);
+BOOL DeleteFileA(
+    LPCSTR lpFileName
+);
 
 /++ handleapi.h ++/
 BOOL CloseHandle(HANDLE hObject);
@@ -336,7 +360,44 @@ BOOL CloseHandle(HANDLE hObject);
 enum : DWORD
 {
     ERROR_FILE_NOT_FOUND = 2,
+    ERROR_ACCESS_DENIED = 4,
     ERROR_FILE_EXISTS = 80,
     ERROR_ALREADY_EXISTS = 183,
 }
 DWORD GetLastError();
+
+/++ winbase.h ++/
+enum : DWORD
+{
+    FORMAT_MESSAGE_ALLOCATE_BUFFER = 0x00000100,
+    FORMAT_MESSAGE_ARGUMENT_ARRAY = 0x00002000,
+    FORMAT_MESSAGE_FROM_HMODULE = 0x00000800,
+    FORMAT_MESSAGE_FROM_STRING = 0x00000400,
+    FORMAT_MESSAGE_FROM_SYSTEM = 0x00001000,
+    FORMAT_MESSAGE_IGNORE_INSERTS = 0x00000200
+}
+DWORD FormatMessageA(
+    DWORD   dwFlags,
+    LPCVOID lpSource,
+    DWORD   dwMessageId,
+    DWORD   dwLanguageId,
+    LPSTR   lpBuffer,
+    DWORD   nSize,
+    void   *Arguments
+);
+
+/++ processthreadsapi.h ++/
+void ExitProcess(
+    UINT uExitCode
+);
+
+/++ console api ++/
+enum : DWORD
+{
+    STD_INPUT_HANDLE = -10,
+    STD_OUTPUT_HANDLE = -11,
+    STD_ERROR_HANDLE = -12,
+}
+HANDLE GetStdHandle(
+    @_In_ DWORD nStdHandle
+);

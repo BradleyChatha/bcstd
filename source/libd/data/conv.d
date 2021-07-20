@@ -9,7 +9,9 @@ private immutable BASE10_CHARS = "0123456789";
 
 String to(StringT : String, ValueT)(auto ref ValueT value)
 {
-    static if(__traits(compiles, toBase10(value)))
+    static if(is(ValueT == bool))
+        return value ? String("true") : String("false");
+    else static if(__traits(compiles, toBase10(value)))
         return value.toBase10;
     else static if(is(ValueT == struct))
     {
@@ -21,8 +23,6 @@ String to(StringT : String, ValueT)(auto ref ValueT value)
         return String(value);
     else static if(is(ValueT == String))
         return value;
-    else static if(is(ValueT == bool))
-        return value ? String("true") : String("false");
     else static assert(false, "Don't know how to convert '"~ValueT.stringof~"' into a String.");
 }
 ///

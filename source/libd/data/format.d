@@ -93,7 +93,7 @@ private void defaultFormatterSegmentHandler(ResultT, ParamT)(scope ref ResultT r
     const formatter = segment.formatter;
     if(formatter is null)
     {
-        static if(__traits(compiles, result.put(param)))
+        static if(__traits(compiles, result.put(param)) && !is(ParamT : const bool))
             result.put(param);        
         else static if(__traits(hasMember, ParamT, "toString"))
         {
