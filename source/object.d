@@ -20,7 +20,7 @@ extern(C) void _d_assertp()
 {
 }
 
-extern(C) void _assert()
+extern(C) void _assert(char*, char*, uint)
 {
     
 }

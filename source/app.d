@@ -10,8 +10,6 @@ version(Testing)
             string b;
         }
 
-        consoleWriteln(consoleRead());
-
         return 0;
     }
 }

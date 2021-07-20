@@ -1,18 +1,14 @@
-/// This is just JANSI, but ported over, hence why it uses Phobos so much.
-/// I'll move it over to libd as needed, as it only touches -betterC compatible parts of Phobos now anyway.
+/// This is just JANSI, but ported over
 module libd.console.ansi;
-
-version(none):
 
 import libd.algorithm : isOutputRange;
 import libd.datastructures.string;
-import std.typecons : Flag;
 
 /// Used to determine if an `AnsiColour` is a background or foreground colour.
-alias IsBgColour = Flag!"isBg";
+enum IsBgColour : bool { no, yes }
 
 /// Used by certain functions to determine if they should only output an ANSI sequence, or output their entire sequence + data.
-alias AnsiOnly = Flag!"ansiOnly";
+enum AnsiOnly : bool { no, yes }
 
 /// An 8-bit ANSI colour - an index into the terminal's colour palette.
 alias Ansi8BitColour = ubyte;
@@ -484,8 +480,6 @@ enum AnsiSgrStyle
 
 private template getMaxSgrStyleCharCount()
 {
-    import std.traits : EnumMembers;
-
     // Can't even use non-betterC features in CTFE, so no std.conv.to!string :(
     size_t numberOfChars(int num)
     {
@@ -503,8 +497,8 @@ private template getMaxSgrStyleCharCount()
     size_t calculate()
     {
         size_t amount;
-        static foreach(member; EnumMembers!AnsiSgrStyle)
-            amount += numberOfChars(cast(int)member) + 1; // + 1 for the semi-colon after.
+        static foreach(name; __traits(allMembers, AnsiSgrStyle))
+            amount += numberOfChars(cast(int)__traits(getMember, AnsiSgrStyle, name)) + 1; // + 1 for the semi-colon after.
 
         return amount;
     }
@@ -672,8 +666,6 @@ struct AnsiStyle
     @safe @nogc
     char[] toSequence(ref return char[MAX_CHARS_NEEDED] buffer) nothrow const
     {
-        import std.traits : EnumMembers;
-
         if(this._sgrBitmask == 0)
             return null;
 
@@ -687,8 +679,9 @@ struct AnsiStyle
         }
 
         bool isFirstValue = true;
-        static foreach(flag; EnumMembers!AnsiSgrStyle)
+        static foreach(name; __traits(allMembers, AnsiSgrStyle))
         {{
+            const flag = __traits(getMember, AnsiSgrStyle, name);
             if(this.getSgrBit(flag))
             {
                 if(!isFirstValue)
@@ -1392,61 +1385,6 @@ unittest
 }
 
 ///
-mixin template AnsiTextMallocImplementation()
-{
-    import std.experimental.allocator.mallocator, std.experimental.allocator;
-
-    enum Features = AnsiTextImplementationFeatures.basic;
-
-    // Again, very naive implementation just to get stuff to show off.
-    private char[][] _slices;
-
-    // Stuff like this is why I went for this very strange design decision of using user-defined mixin templates.
-    @disable this(this){}
-
-    @nogc
-    ~this() nothrow
-    {
-        if(this._slices !is null)
-        {
-            foreach(slice; this._slices)
-                Mallocator.instance.dispose(slice);
-            Mallocator.instance.dispose(this._slices);
-        }
-    }
-
-    @nogc
-    char[] newSlice(size_t minLength) nothrow
-    {
-        auto slice = Mallocator.instance.makeArray!char(minLength);
-        if(this._slices is null)
-            this._slices = Mallocator.instance.makeArray!(char[])(1);
-        else
-            Mallocator.instance.expandArray(this._slices, 1);
-        this._slices[$-1] = slice;
-        return slice;
-    }
-
-    void toSink(Sink)(ref scope Sink sink)
-    if(isOutputRange!(Sink, char[]))
-    {
-        foreach(slice; this._slices)
-            sink.put(slice);
-        sink.put(ANSI_COLOUR_RESET);
-    }
-}
-
-/++
- + A basic implementation using `malloc` backed memory.
- +
- + This implementation disables copying for `AnsiText`, as it makes use of RAII to cleanup its resources.
- +
- + Sinks should keep in mind that they are being passed manually managed memory, so it should be considered an error
- + if the sink stores any provided slices outside of its `.put` function. i.e. Copy the data, don't keep it around unless you know what you're doing.
- + ++/
-alias AnsiTextMalloc = AnsiText!AnsiTextMallocImplementation;
-
-///
 template AnsiTextStackImplementation(size_t Capacity)
 {
     mixin template AnsiTextStackImplementation()
@@ -1530,8 +1468,6 @@ alias AnsiTextStack(size_t Capacity) = AnsiText!(AnsiTextStackImplementation!Cap
 @safe @nogc
 string ansiExecuteSgrSequence(const(char)[] input, ref AnsiStyleSet style, out size_t charsRead) nothrow
 {
-    import std.traits : EnumMembers;
-
     enum ReadResult { foundEndMarker, foundSemiColon, foundEnd, foundBadCharacter }
 
     if(input.length < 3)
@@ -1574,7 +1510,8 @@ string ansiExecuteSgrSequence(const(char)[] input, ref AnsiStyleSet style, out s
 
     int toValue(const(char)[] slice)
     {
-        return (slice.length == 0) ? 0 : slice.strToNum!int;
+        import libd.data.conv;
+        return (slice.length == 0) ? 0 : fromBase10!int(slice).value;
     }
 
     string resultToString(ReadResult result)
@@ -1608,15 +1545,16 @@ string ansiExecuteSgrSequence(const(char)[] input, ref AnsiStyleSet style, out s
                     case 0: styleCopy = AnsiStyleSet.init; break;
 
                     // Basic style flag setters.
-                    static foreach(member; EnumMembers!AnsiSgrStyle)
-                    {
+                    static foreach(name; __traits(allMembers, AnsiSgrStyle))
+                    {{
+                        enum member = __traits(getMember, AnsiSgrStyle, name);
                         static if(member != AnsiSgrStyle.none)
                         {
                             case cast(int)member:
                                 styleCopy.style = styleCopy.style.set(member, true);
                                 break Switch;
                         }
-                    }
+                    }}
 
                     // Set foreground to a 4-bit colour.
                     case 30:..case 37:
@@ -1762,7 +1700,7 @@ struct AnsiSectionRange
         bool          _empty = true; // So .init.empty is true
     }
     
-    @safe @nogc nothrow pure:
+    @safe @nogc nothrow:
 
     ///
     this(const(char)[] input)
@@ -1989,25 +1927,9 @@ unittest
  + Constructs an `AnsiSectionRange` from the given `slice`.
  + ++/
 @safe @nogc
-AnsiSectionRange asAnsiSections(const(char)[] slice) nothrow pure
+AnsiSectionRange asAnsiSections(const(char)[] slice) nothrow
 {
     return AnsiSectionRange(slice);
-}
-
-/++
- + Enables ANSI support on windows via `SetConsoleMode`. This function is no-op on non-Windows platforms.
- + ++/
-void ansiEnableWindowsSupport() @nogc nothrow
-{
-    version(Windows)
-    {
-        import core.sys.windows.windows : HANDLE, DWORD, GetStdHandle, STD_OUTPUT_HANDLE, GetConsoleMode, SetConsoleMode, ENABLE_VIRTUAL_TERMINAL_PROCESSING;
-        HANDLE stdOut = GetStdHandle(STD_OUTPUT_HANDLE);
-        DWORD mode = 0;
-        GetConsoleMode(stdOut, &mode);
-        mode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
-        SetConsoleMode(stdOut, mode);
-    }
 }
 
 /+++ PRIVATE HELPERS +++/
@@ -2041,31 +1963,4 @@ unittest
 {
     char[2] b;
     assert(numToStrBase10(b, 32) == "32");
-}
-
-private NumT strToNum(NumT)(const(char)[] slice)
-{
-    NumT num;
-
-    foreach(i, ch; slice)
-    {
-        const exponent = slice.length - (i + 1);
-        const tens     = 10 ^^ exponent;
-        const chNum    = cast(NumT)(ch - '0');
-
-        if(tens == 0)
-            num += chNum;
-        else
-            num += chNum * tens;
-    }
-
-    return num;
-}
-///
-@("strToNum")
-unittest
-{
-    assert("1".strToNum!int == 1);
-    assert("11".strToNum!int == 11);
-    assert("901".strToNum!int == 901);
 }

@@ -105,5 +105,11 @@ void _d_console_io_init()
         createStream(g_stdout, STD_OUTPUT_HANDLE, FileUsage.write);
         createStream(g_stderr, STD_ERROR_HANDLE, FileUsage.write);
         createStream(g_stdin, STD_INPUT_HANDLE, FileUsage.read);
+
+        HANDLE stdOut = GetStdHandle(STD_OUTPUT_HANDLE);
+        DWORD mode = 0;
+        GetConsoleMode(stdOut, &mode);
+        mode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+        SetConsoleMode(stdOut, mode);
     }
 }

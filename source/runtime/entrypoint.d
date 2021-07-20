@@ -14,7 +14,7 @@ template _d_cmain()
     {
         int _Dmain(char[][] args);
 
-        int main(int argc, char **argv)
+        int mainImpl(int argc, char **argv)
         {
             import runtime.primitives.tls;
             _d_preInit();
@@ -29,6 +29,24 @@ template _d_cmain()
             }
 
             assert(false);
+        }
+
+        version(Windows)
+        {
+            version(LDC)
+            {
+                int wmain(int argc, char **argv)
+                {
+                    return mainImpl(argc, argv);
+                }
+            }
+            else
+            {
+                int main(int argc, char **argv)
+                {
+                    return mainImpl(argc, argv);
+                }
+            }
         }
     }
 }

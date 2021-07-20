@@ -1,6 +1,6 @@
 module libd.util.errorhandling;
 
-import libd.datastructures : SumType;
+import libd.datastructures.sumtype;
 import  libd.datastructures.string, libd.data.conv, libd.memory, libd.meta;
 
 @nogc nothrow:
