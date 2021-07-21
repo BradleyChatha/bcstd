@@ -18,8 +18,9 @@ global atomicLoad64
 %macro gen_cas 4
     mov %1, %3                          ; a = equalsThis
     lock cmpxchg %2 [PARAM_REG_0], %4   ; if(*ifThis == equalsThis) *ifThis = setThis
+    setz cl
     xor rax, rax
-    setz al
+    mov al, cl
     ret
 %endmacro
 

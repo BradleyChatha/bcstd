@@ -24,6 +24,7 @@ String GetLastErrorAsString()
 struct _Frees_ptr_opt_{}
 struct _In_ {}
 struct _Out_ {}
+struct _Out_opt_ {}
 
 /++A bunch of types++/
 alias BOOL = int;
@@ -123,6 +124,7 @@ alias PHALF_PTR = HALF_PTR*;
 alias PHANDLE = HANDLE*;
 alias PLARGE_INTEGER = LARGE_INTEGER*;
 // todo...
+alias PULONG = ULONG*;
 alias PVOID = void*;
 alias QWORD = ulong;
 alias SHORT = short;
@@ -135,6 +137,7 @@ alias UINT16 = ushort;
 alias UINT32 = uint;
 alias UINT64 = ulong;
 alias ULONG = uint;
+alias ULONG64 = ulong;
 alias ULONG_PTR = ulong;
 alias ULONGLONG = ulong;
 alias USHORT = ushort;
@@ -190,6 +193,10 @@ HMODULE LoadLibraryExA(LPCSTR lpLibFileName, HANDLE hFile, DWORD dwFlags);
 HMODULE LoadLibraryExW(LPCWSTR lpLibFileName, HANDLE hFile, DWORD dwFlags);
 BOOL RemoveDllDirectory(DLL_DIRECTORY_COOKIE Cookie);
 BOOL SetDefaultDllDirectories(DWORD DirectoryFlags);
+FARPROC GetProcAddress(
+    HMODULE hModule,
+    LPCSTR  lpProcName
+);
 
 /++ memoryapi.h ++/
 enum : DWORD
@@ -391,6 +398,7 @@ DWORD FormatMessageA(
 void ExitProcess(
     UINT uExitCode
 );
+HANDLE GetCurrentProcess();
 
 /++ console api ++/
 enum : DWORD

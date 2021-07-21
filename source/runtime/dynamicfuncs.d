@@ -43,6 +43,9 @@ extern(C) bool memequalSlow(const scope void* a, const scope void* b, size_t amo
 @nogc nothrow
 extern(C) size_t strlenSlow(const scope char* str)
 {
+    if(str is null)
+        return 0;
+
     const start = str;
     auto strMut = cast(char*)str;
     while(*strMut != '\0')

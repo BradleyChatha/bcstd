@@ -31,6 +31,12 @@ extern(C) void _assert(char* message, char* file, uint line)
 
 private void assertImpl(String message, String file, uint line)
 {
+    import runtime.stacktrace;
+
+    size_t traceCount;
+
+    auto traces = traceGetStackTrace!8(2, traceCount);
+
     version(unittest)
     {
         import libd.testing.runner, libd.async;
@@ -38,10 +44,10 @@ private void assertImpl(String message, String file, uint line)
             return;
 
         taskYieldRaise(BcError(
-            file,
+            traces[0].file,
+            traces[0].symbol,
             String("Unknown"),
-            String("Unknown"),
-            line,
+            traces[0].line,
             0,
             message
         ));

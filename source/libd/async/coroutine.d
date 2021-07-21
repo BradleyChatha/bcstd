@@ -5,7 +5,10 @@ import libd.datastructures : LinkedList, SumType;
 import libd.memory : g_alloc, PageAllocator, PageAllocation;
 import libd.util.maths : alignTo;
 
-enum DEFAULT_COROUTINE_STACK_SIZE = 1024 * 10;
+enum DEFAULT_COROUTINE_STACK_SIZE = 0x1000*10; // For stack tracing on windows to work, we need to be a multiple of 0x1000, a.k.a the page boundary
+                                               // Because after a 'fun' ASM debug session, I found out that an internal function
+                                               // deep inside dbghelp.dll has a hard expectation of this alignment.
+                                               // On the plus side, I learned a lot more about how to use x64dbg!
 
 version(X86_64)
 {
@@ -174,7 +177,7 @@ void coroutineStart(Coroutine* to)
         {
             assert(standalone.owner is null, "There is currently another coroutine making use of this standalone stack.");
             standalone.owner = to;
-            to.registers[REGISTERS.rsp] = cast(ulong)standalone.context.alignedBot;
+            to.registers[REGISTERS.rsp] = cast(ulong)standalone.context.alignedBot-8; // Need to enter a function with (RSP % 16) == 8
             version(Windows)
             version(X86_64)
             {
@@ -182,7 +185,7 @@ void coroutineStart(Coroutine* to)
                 to.registers[REGISTERS.gs8]  = cast(ulong)standalone.context.alignedBot;
                 to.registers[REGISTERS.gs16] = cast(ulong)standalone.context.alignedTop;
             }
-            *(cast(void**)standalone.context.alignedBot) = &coroutineExit;
+            *(cast(void**)standalone.context.alignedBot-8) = &coroutineExit;
         }
     )(to.stack);
     g_currentThreadRoutine = to;
@@ -302,7 +305,7 @@ StackContext pageAlloc(size_t minSize, bool useGuardPage)
     context.base       = alloc.memory.ptr;
     context.alignedBot = (alloc.memory.ptr + alloc.memory.length);
     context.alignedTop = alloc.memory.ptr;
-    context.alignedBot -= 40; // Win64 ABI requires a 32 byte shadow space, and we need another 8 bytes for the default return address.
+    context.alignedBot -= 56; // Win64 ABI requires a 32 byte shadow space, and we need another 8 bytes for the default return address.
     context.alignedBot = cast(ubyte*)((cast(ulong)context.alignedBot).alignTo!16);
     context.alignedTop = cast(ubyte*)((cast(ulong)context.alignedTop).alignTo!16);
     context.pages      = alloc;

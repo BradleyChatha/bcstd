@@ -7,6 +7,7 @@ __gshared Array!bcstring g_programArgs;
 template _d_cmain()
 {
     import runtime.entrypoint : g_programArgs, _d_preInit, _d_parseArgs;
+    import runtime.system : _d_init_system;
 
     extern(C)
     {
@@ -16,6 +17,7 @@ template _d_cmain()
         {
             import runtime.primitives.tls;
             _d_preInit();
+            _d_init_system();
             _d_parseArgs();
             const exit = _Dmain(null);
 
