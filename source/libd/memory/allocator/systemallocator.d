@@ -53,6 +53,14 @@ import libd.memory.allocator._test;
 @("SystemAllocator - BasicAllocatorTests")
 unittest { basicAllocatorTests!(SystemAllocator, () => true)(); } 
 
+void _d_systemAllocInit()
+{
+    version(Posix)
+    {
+        g_posixAlloc.__ctor(32);
+    }
+}
+
 private:
 
 version(Windows)
@@ -76,36 +84,42 @@ version(Windows)
         return cast(T*)HeapReAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, ptr, T.sizeof * toAmount);
     }
 }
-else // Default to libc for platforms without specific support.
+else version(Posix)
 {
-    import core.stdc.stdlib : calloc, free, realloc;
-    import libd.memory.funcs : memset;
+    import runtime.system.posix;
+    import libd.memory;
+
+    // For now. I need to make this better of course.
+    private shared BlockBucketAllocator!64 g_posixAlloc;
 
     T* allocImpl(T)(size_t amount)
     {
-        return cast(T*)calloc(amount, T.sizeof);
+        auto p = g_posixAlloc.alloc!T(amount);
+        return cast(T*)p;
     }
 
     bool freeImpl(T)(T* ptr)
     {
-        if(ptr is null)
-            return false;
-        free(ptr);
+        // Idk, somehow this is a circular reference. Will need to look into it at *some* point.
+        // if(ptr is null || !g_posixAlloc.owns(ptr))
+        //     return false;
+        // g_posixAlloc.free(ptr);
         return true;
     }
 
     T* reallocImpl(T)(T* ptr, size_t fromAmount, size_t toAmount)
     {
-        ptr = realloc(ptr, toAmount);
-        if(ptr is null)
+        auto slice = ptr[0..T.sizeof * fromAmount].notNull!(g_posixAlloc.Tag);
+        auto result = g_posixAlloc.realloc(slice, toAmount);
+        if(result is null)
             return null;
 
         if(toAmount > fromAmount)
         {
             const difference = (toAmount - fromAmount);
-            memset(ptr + (fromAmount * T.sizeof), 0, difference * T.sizeof);
+            memset(0, result.ptr + (fromAmount * T.sizeof), difference * T.sizeof);
         }
 
-        return ptr;
+        return result.ptr;
     }
 }

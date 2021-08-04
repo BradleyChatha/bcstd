@@ -328,3 +328,8 @@ unittest
     array[0] = S.init;
     array[1] = S.init;
 }
+
+void _d_memoryInit()
+{
+    
+}

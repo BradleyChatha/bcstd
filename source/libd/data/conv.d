@@ -90,6 +90,20 @@ unittest
     assert(String("-120").to!byte.assumeValid == -120);
 }
 
+SimpleResult!EnumT to(EnumT, ValueT)(ValueT value)
+if(is(EnumT == enum))
+{
+    import libd.data.foramt;
+    switch(value)
+    {
+        static foreach(name; __traits(allMembers, EnumT))
+            case mixin("cast(ValueT)EnumT."~name): return mixin("EnumT."~name);
+
+        default:
+            return typeof(return)(raise("Value '{0}' does not belong to enum {1}.".format(value, EnumT.stringof)));
+    }
+}
+
 private void structToString(StructT, OutputT)(auto ref StructT value, ref OutputT output)
 if(is(StructT == struct) && isOutputRange!(OutputT, bcstring))
 {

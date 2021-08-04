@@ -13,10 +13,18 @@ template _d_cmain()
     {
         int _Dmain(char[][] args);
 
-        int mainImpl(int argc, char **argv)
+        int mainImpl(int argc, char **argv, char** envp)
         {
-            import runtime.primitives.tls;
+            import runtime.primitives.tls, libd.memory;
+
+            version(Posix)
+            {
+                import runtime.system.posix.auxvector;
+                _d_loadAuxVector(envp);
+            }
+
             _d_preInit();
+            _d_memoryInit();
             _d_init_system();
             _d_parseArgs();
             const exit = _Dmain(null);
@@ -38,15 +46,22 @@ template _d_cmain()
             {
                 int wmain(int argc, char **argv)
                 {
-                    return mainImpl(argc, argv);
+                    return mainImpl(argc, argv, null);
                 }
             }
             else
             {
                 int main(int argc, char **argv)
                 {
-                    return mainImpl(argc, argv);
+                    return mainImpl(argc, argv, null);
                 }
+            }
+        }
+        else version(Posix)
+        {
+            int main(int argc, char** argv, char** envp)
+            {
+                return mainImpl(argc, argv, envp);
             }
         }
     }

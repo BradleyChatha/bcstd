@@ -1,6 +1,6 @@
 module libd.io.filesystem;
 
-import libd.io.stream, libd.util.errorhandling, libd.datastructures.smartptr, libd.data.conv;
+import libd.io.stream, libd.util.errorhandling, libd.datastructures.smartptr, libd.data.conv, libd.data.format;
 
 @nogc nothrow:
 
@@ -47,8 +47,17 @@ struct FileStream
     {
         if(this._file)
         {
-            CloseHandle(this._file);
-            this._file = null;
+            version(Windows)
+            {
+                CloseHandle(this._file);
+                this._file = null;
+            }
+            else version(Posix)
+            {
+                import runtime.system.posix;
+                close(this._file);
+                this._file = FileT.min;
+            }
         }
     }
 
@@ -71,7 +80,8 @@ struct FileStream
     
     bool isOpen()
     {
-        return this._file !is null;
+        version(Windows) return this._file !is null;
+        else return this._file > -1;
     }
 
     SimpleResult!size_t getPosition()
@@ -281,6 +291,104 @@ version(Windows)
         if(!result)
             return typeof(return)(raise(GetLastErrorAsString()));
 
+        return typeof(return)();
+    }
+}
+else version(Posix)
+{
+    import runtime.system.posix;
+    alias FileT = int;
+
+    SimpleResult!FileT fileOpenImpl(const char[] file, FileOpenMode mode, FileUsage usage)
+    {
+        int flags;
+        if(usage == FileUsage.readWrite)
+            flags |= O_RDWR;
+        else if (usage == FileUsage.read)
+            flags |= O_RDONLY;
+        else if(usage == FileUsage.write)
+            flags |= O_WRONLY;
+        else
+            assert(false, "No file usage was specified");
+
+        final switch(mode) with(FileOpenMode)
+        {
+            case createIfNotExists: flags |= O_CREAT; break;
+            case createAlways: flags |= O_CREAT | O_TRUNC; break;
+            case openExisting: break;
+            case openAlways: flags |= O_CREAT; break;
+            case truncateExisting: flags |= O_TRUNC; break;
+            case FAILSAFE: assert(false, "FAILSAFE was used.");
+        }
+
+        int fd = open(String(file).ptrUnsafe, flags, 0x1B6);
+        if(fd < 0)
+            return typeof(return)(raise("Could not open file at {0} (errno {1})".format(file, g_errno).value, g_errno));
+
+        return typeof(return)(fd);
+    }
+
+    SimpleResult!size_t fileWriteImpl(FileT file, const scope void[] data)
+    {
+        const wrote = write(file, data.ptr, data.length);
+        if(wrote < 0)
+            return typeof(return)(raise("Could not write to file (errno {0})".format(g_errno).value, g_errno));
+
+        return typeof(return)(cast(size_t)wrote);
+    }
+
+    SimpleResult!size_t fileGetSizeImpl(FileT file)
+    {
+        stat stats;
+        const result = fstat(file, &stats);
+        if(result < 0)
+            return typeof(return)(raise("fstat failed (errno {0})".format(g_errno).value, g_errno));
+
+        return typeof(return)(cast(size_t)stats.st_size);
+    }
+
+    SimpleResult!void fileSetPositionImpl(FileT file, size_t position)
+    {
+        assert(position <= long.max);
+        const result = lseek(file, position, SEEK_SET);
+        if(result < 0)
+            return typeof(return)(raise("lseek failed (errno {0})".format(g_errno).value, g_errno));
+
+        return typeof(return)();
+    }
+
+    SimpleResult!size_t fileGetPositionImpl(FileT file)
+    {
+        const result = lseek(file, 0, SEEK_CUR);
+        if(result < 0)
+            return typeof(return)(raise("lseek failed (errno {0})".format(g_errno).value, g_errno));
+
+        return typeof(return)(cast(size_t)result);
+    }
+
+    SimpleResult!size_t fileReadImpl(FileT file, scope void[] data)
+    {
+        const result = read(file, data.ptr, data.length);
+        if(!result)
+            return typeof(return)(raise("read failed (errno {0})".format(g_errno).value, g_errno));
+
+        return typeof(return)(cast(size_t)result);
+    }
+
+    bool fsExistsImpl(const char[] path)
+    {
+        String zeroTerm = path;
+        return cast(bool)access(zeroTerm[0..$].ptr, F_OK);
+    }
+
+    SimpleResult!void fsDeleteImpl(const char[] path)
+    {
+        String zeroTerm = path;
+        auto result = unlink(zeroTerm.ptrUnsafe);
+        if(result == EISDIR)
+            result = rmdir(zeroTerm.ptrUnsafe);
+        if(result < 0)
+            return typeof(return)(raise("unlink/rmdir failed (errno {0})".format(g_errno).value, g_errno));
         return typeof(return)();
     }
 }

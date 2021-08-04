@@ -5,7 +5,7 @@ public import
 
 void testGetLibdCases(ref Array!TestCase cases)
 {
-    import libd;
+    import libd, runtime.system.posix.posix_;
 
     testGatherCases!(
         libd.async.task,
@@ -14,6 +14,7 @@ void testGetLibdCases(ref Array!TestCase cases)
         libd.algorithm.common,
         libd.algorithm.comparison,
         libd.algorithm.filtering,
+        libd.algorithm.mutate,
         libd.algorithm.search,
 
         libd.console.ansi,
@@ -40,8 +41,10 @@ void testGetLibdCases(ref Array!TestCase cases)
 
         libd.memory.funcs,
         libd.memory.ptr,
+        libd.memory.allocator.blockallocator,
         libd.memory.allocator.common,
         libd.memory.allocator.pageallocator,
+        libd.memory.allocator.regionallocator,
         libd.memory.allocator.systemallocator,
 
         libd.meta.ctassert,
@@ -57,6 +60,8 @@ void testGetLibdCases(ref Array!TestCase cases)
         libd.util.cpuid,
         libd.util.errorhandling,
         libd.util.maths,
-        libd.util.ternary
+        libd.util.ternary,
+
+        runtime.system.posix.posix_,
     )(cases);
 }

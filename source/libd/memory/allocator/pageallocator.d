@@ -25,7 +25,7 @@ shared struct PageAllocator
         _regions.moveTail(region);
     }
 
-    static PageAllocation allocInPages(size_t pageCount, bool allocGuardPage = true)
+    static shared(PageAllocation) allocInPages(size_t pageCount, bool allocGuardPage = true)
     {
         _regionLock.lock();
         {
@@ -47,14 +47,14 @@ shared struct PageAllocator
         }
     }
 
-    static PageAllocation allocInBytesToPages(size_t minByteCount, bool allocGuardPage = true)
+    static shared(PageAllocation) allocInBytesToPages(size_t minByteCount, bool allocGuardPage = true)
     {
         import libd.util.maths : alignTo;
         // TEMP, fix this later when I can be arsed.
         return allocInPages(minByteCount.alignTo!0x1000 / 0x1000, allocGuardPage);
     }
 
-    static void free(ref PageAllocation alloc)
+    static void free(ref shared(PageAllocation) alloc)
     {
         // TODO: determine which region alloc belongs to.
         //       this is safe enough for now.
@@ -109,7 +109,7 @@ struct PageRegion
         this.pageSize = pageSize;
     }
 
-    SimpleResult!PageAllocation allocInPages(size_t pageCount, bool allocGuardPage)
+    SimpleResult!(shared PageAllocation) allocInPages(size_t pageCount, bool allocGuardPage)
     {
         PageAllocation alloc;
         
@@ -139,12 +139,12 @@ struct PageRegion
             alloc.memory = ptr[0..size];
         alloc.hasGuardPage = allocGuardPage;
         alloc.pageCount = pageCount;
-        return typeof(return)(alloc);
+        return typeof(return)(cast(shared)alloc);
     }
 
-    void free(PageAllocation alloc)
+    void free(shared PageAllocation alloc)
     {
-        assert(alloc.bitKeepSlice != BitKeeperSlice.init);
+        assert(alloc.bitKeepSlice != (shared BitKeeperSlice).init);
 
         this.bitKeepLock.lock();
         {
@@ -152,7 +152,83 @@ struct PageRegion
             this.bitKeep.free(alloc.bitKeepSlice);
         }
 
-        if(!VirtualFree(alloc.memory.ptr, alloc.memory.length, MEM_DECOMMIT))
+        if(!VirtualFree(cast(ubyte*)alloc.memory.ptr, alloc.memory.length, MEM_DECOMMIT))
             assert(false, "Could not free pages?");
+    }
+}
+
+version(Posix)
+struct PageRegion // Technically speaking I could DRY this, since I only need to replace bits and bobs.
+                  // But I've been programming for about 14 hours and my mind is mush.
+                  // TODO: 
+{
+    import runtime.system.posix;
+
+    @nogc nothrow:
+
+    ubyte[] memoryRange;
+    LockBusyCas bitKeepLock;
+    BitKeeper bitKeep;
+    uint pageSize;
+
+    this(string _)
+    {
+        const pageSize       = g_posixPageSize;                 // Size of each page
+        const pageGran       = g_posixPageSize;                 // Virtual memory granularity
+        const pagesPerGran   = pageGran / pageSize;             // How many pages fit into each granularity
+        const trackablePages = pageSize * 8;                    // How many pages in total we can track using a single page as the bitkeep
+        const totalPages     = (trackablePages / pagesPerGran) * pagesPerGran;   // How many pages we should actually get under the memory granularity.
+
+        auto ptr = cast(ubyte*)mmap(null, totalPages * pageSize);
+        if(!ptr)
+            onOutOfMemoryError(ptr);
+        this.memoryRange = ptr[0..totalPages * pageSize];
+
+        this.bitKeep = BitKeeper(memoryRange[0..pageSize], pageSize*8);
+        this.bitKeep.alloc(1); // Always keep the first page allocated
+        this.pageSize = pageSize;
+    }
+
+    SimpleResult!(shared PageAllocation) allocInPages(size_t pageCount, bool allocGuardPage)
+    {
+        PageAllocation alloc;
+        
+        this.bitKeepLock.lock();
+        {
+            scope(exit) this.bitKeepLock.unlock();
+            auto result = this.bitKeep.alloc(pageCount + allocGuardPage);
+            if(!result.isValid)
+                return typeof(return)(result.error);
+            alloc.bitKeepSlice = result.value;
+        }
+
+        const start = (this.pageSize * alloc.bitKeepSlice.bitIndex);
+        const size  = (this.pageSize * pageCount);
+        auto ptr = this.memoryRange.ptr + start;
+
+        if(allocGuardPage)
+        {
+            // TODO:
+            // DWORD _1;
+            // if(!VirtualProtect(ptr, this.pageSize, PAGE_READONLY | PAGE_GUARD, &_1))
+            //     assert(false, "Que?");
+            // alloc.memory = ptr[this.pageSize..this.pageSize+size];
+        }
+        else
+            alloc.memory = ptr[0..size];
+        alloc.hasGuardPage = allocGuardPage;
+        alloc.pageCount = pageCount;
+        return typeof(return)(cast(shared)alloc);
+    }
+
+    void free(shared PageAllocation alloc)
+    {
+        assert(alloc.bitKeepSlice != (shared BitKeeperSlice).init);
+
+        this.bitKeepLock.lock();
+        {
+            scope(exit) this.bitKeepLock.unlock();
+            this.bitKeep.free(alloc.bitKeepSlice);
+        }
     }
 }

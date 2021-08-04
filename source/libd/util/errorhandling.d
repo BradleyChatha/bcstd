@@ -87,7 +87,7 @@ BcError raise(string File = __FILE_FULL_PATH__, string Function = __PRETTY_FUNCT
     int errorCode = 0
 )
 {
-    return raise(String(message), errorCode);
+    return raise!(File, Function, Module, Line)(String(message), errorCode);
 }
 
 BcError raise(string File = __FILE_FULL_PATH__, string Function = __PRETTY_FUNCTION__, string Module = __MODULE__, size_t Line = __LINE__)(

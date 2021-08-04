@@ -31,11 +31,15 @@ extern(C) void _assert(char* message, char* file, uint line)
 
 private void assertImpl(String message, String file, uint line)
 {
-    import runtime.stacktrace;
+    import runtime.stacktrace, libd.console.io;
 
     size_t traceCount;
 
     auto traces = traceGetStackTrace!8(2, traceCount);
+
+    Array!char output;
+    traceFormatStackTrace(output, traces);
+    consoleWriteln(output[]);
 
     version(unittest)
     {

@@ -45,7 +45,7 @@ unittest
     }
 
     assert(format("abc").assumeValid == "abc");
-    assert(format("abc {1} {0}", 123, "easy as").assumeValid == "abc easy as 123");
+    assert(format("abc {1:} {0}", 123, "easy as").assumeValid == "abc easy as 123");
     assert(format("abc {0}", DoeRayMe("hard as", 321)).assumeValid == `abc DoeRayMe("hard as", 321)`);
 }
 
@@ -91,7 +91,7 @@ void defaultFormatter(ResultT, Params...)(scope bcstring spec, scope ref ResultT
 private void defaultFormatterSegmentHandler(ResultT, ParamT)(scope ref ResultT result, const scope FormatSegment segment, scope auto ref ParamT param) nothrow
 {
     const formatter = segment.formatter;
-    if(formatter is null)
+    if(formatter.length == 0)
     {
         static if(__traits(compiles, result.put(param)) && !is(ParamT : const bool))
             result.put(param);
@@ -100,7 +100,12 @@ private void defaultFormatterSegmentHandler(ResultT, ParamT)(scope ref ResultT r
         else static assert(false, "Don't know how to default format param of type "~ParamT.stringof);
     }
     else
-        assert(false, "TODO");
+    {
+        displayError(raise(
+            String("An invalid formatter was passed: ")~String(formatter)
+        ));
+        assert(false, "An invalid formatter was passed.");
+    }
 }
 
 @nogc
@@ -124,14 +129,11 @@ void formatInfoPusher(scope bcstring format, scope void delegate(SimpleResult!Fo
         if(start < format.length && format[start] == '{')
         {
             handler(FormatStringInfo(cast(bcstring)"{{").result);
-            start++;
-            cursor = start;
             continue;
         }
 
         FormatSegment segment;
         bool foundIndex;
-        bool foundFormatter; // TODO:
 
         cursor = start;
         Foreach: foreach(i, ch; format[start..$])
@@ -150,8 +152,28 @@ void formatInfoPusher(scope bcstring format, scope void delegate(SimpleResult!Fo
                         }
                         segment.formatItemIndex = convResult.value;
                     }
+                    else
+                    {
+                        segment.formatter = format[start..cursor++];
+                        break Foreach;
+                    }
                     cursor++;
                     break Foreach;
+
+                case ':':
+                    if(!foundIndex)
+                    {
+                        foundIndex = true;
+                        const convResult = format[start..cursor].to!ubyte;
+                        if(!convResult.isValid)
+                        {
+                            handler(raise("Invalid parameter index.").result!FormatStringInfo);
+                            return;
+                        }
+                        segment.formatItemIndex = convResult.value;
+                        start = cursor+1;
+                    } // Assume any extra colons are part of the arguments
+                    break;
 
                 default: break;
             }

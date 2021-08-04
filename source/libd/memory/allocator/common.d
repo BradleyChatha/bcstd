@@ -40,6 +40,7 @@ if(ctassert!(isSimpleAllocator!AllocT, "Type `"~AllocT.stringof~"` is not an all
         alias instance = AllocT;
 
         this(_...)(_){} // To make generic code slightly easier, we'll just eat anything passed to the ctor in this case.
+        this(_...)(_) shared {}
     }
     else
     {
@@ -47,6 +48,13 @@ if(ctassert!(isSimpleAllocator!AllocT, "Type `"~AllocT.stringof~"` is not an all
         invariant(instance !is null, "Non-static allocator `"~AllocT.stringof~"` must be provided a solid instance before use.");
 
         @safe
+        this(AllocT* instance)
+        {
+            assert(instance !is null, "Instance cannot be null.");
+            this.instance = instance;
+        }
+
+        @safe shared
         this(AllocT* instance)
         {
             assert(instance !is null, "Instance cannot be null.");
@@ -65,6 +73,29 @@ if(ctassert!(isSimpleAllocator!AllocT, "Type `"~AllocT.stringof~"` is not an all
         return typeof(return)(slice.ptr);
     }
 
+    // idk how to DRY this since the type system constantly gets in my way.
+    shared
+    MaybeNullPtr!(T, Tag) make(T, Params...)(scope auto ref Params params)
+    {
+        auto slice = instance.alloc!T(1);
+        if(slice is null)
+            return typeof(return)(null);
+        emplaceCtor(*slice.ptr, params);
+        return typeof(return)(slice.ptr);
+    }
+
+    MaybeNullSlice!(T, Tag) makeArray(T, Params...)(const size_t amount, scope auto ref Params params)
+    {
+        auto slice = instance.alloc!T(amount);
+        if(slice is null)
+            return typeof(return)(null);
+            
+        foreach(ref item; slice)
+            emplaceCtor(item, params);
+        return slice;
+    }
+
+    shared
     MaybeNullSlice!(T, Tag) makeArray(T, Params...)(const size_t amount, scope auto ref Params params)
     {
         auto slice = instance.alloc!T(amount);
@@ -141,4 +172,45 @@ if(ctassert!(isSimpleAllocator!AllocT, "Type `"~AllocT.stringof~"` is not an all
         this.dispose(wrapped);
         ptr = null;
     }
+    
+    shared
+    void dispose(T)(scope auto ref NotNullPtr!(T, Tag) ptr)
+    {
+        static if(__traits(hasMember, T, "__xdtor"))
+            ptr.ptr.__xdtor();
+        instance.free!T(ptr);
+    }
+
+    shared
+    void dispose(T)(scope auto ref NotNullSlice!(T, Tag) slice)
+    {
+        slice[0..$].notNull.dtorSliceIfNeeded();
+        instance.free!T(slice);
+    }
+
+    shared
+    void dispose(T)(scope auto ref T* ptr) // Trusted that the user knows what they're doing.
+    {
+        auto wrapped = NotNullPtr!(T, Tag)(ptr);
+        this.dispose(wrapped);
+        ptr = null;
+    }
+}
+
+@nogc nothrow
+size_t memoryPageSize()
+{
+    version(Windows)
+    {
+        import runtime.system.windows;
+        SYSTEM_INFO sysInfo;
+        GetSystemInfo(&sysInfo);
+        return sysInfo.dwPageSize;
+    }
+    else version(Posix)
+    {
+        import runtime.system.posix;
+        return g_posixPageSize;
+    }
+    else assert(false);
 }

@@ -293,7 +293,7 @@ struct StackContext
     ubyte* base;
     ubyte* alignedTop;
     ubyte* alignedBot;
-    PageAllocation pages;
+    shared PageAllocation pages;
 }
 
 StackContext pageAlloc(size_t minSize, bool useGuardPage)
@@ -302,9 +302,9 @@ StackContext pageAlloc(size_t minSize, bool useGuardPage)
 
     auto alloc = PageAllocator.allocInBytesToPages(minSize, useGuardPage);
     
-    context.base       = alloc.memory.ptr;
-    context.alignedBot = (alloc.memory.ptr + alloc.memory.length);
-    context.alignedTop = alloc.memory.ptr;
+    context.base       = cast(ubyte*)alloc.memory.ptr;
+    context.alignedBot = cast(ubyte*)(alloc.memory.ptr + alloc.memory.length);
+    context.alignedTop = cast(ubyte*)alloc.memory.ptr;
     context.alignedBot -= 56; // Win64 ABI requires a 32 byte shadow space, and we need another 8 bytes for the default return address.
     context.alignedBot = cast(ubyte*)((cast(ulong)context.alignedBot).alignTo!16);
     context.alignedTop = cast(ubyte*)((cast(ulong)context.alignedTop).alignTo!16);
@@ -313,7 +313,7 @@ StackContext pageAlloc(size_t minSize, bool useGuardPage)
     return context;
 }
 
-void pageFree(PageAllocation pages)
+void pageFree(shared(PageAllocation) pages)
 {
     PageAllocator.free(pages);
 }

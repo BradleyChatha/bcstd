@@ -6,9 +6,9 @@ import libd.util.maths : alignTo;
 
 struct BitKeeperSlice
 {
-    private size_t startByte;
-    private ubyte  startBit;
-    private size_t bitCount;
+    package size_t startByte;
+    package ubyte  startBit;
+    package size_t bitCount;
 
     invariant(startBit >= 0 && startBit < 8);
     invariant(startByte + startBit + bitCount == 0 || bitCount > 0);

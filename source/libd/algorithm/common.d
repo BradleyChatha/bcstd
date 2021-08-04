@@ -56,6 +56,7 @@ pragma(inline, true)
 inout(ElementType!T) front(T)(scope auto ref inout(T) array)
 if(isSlice!T)
 {
+    assert(array.length, "Cannot use value of empty array.");
     return array[0];
 }
 

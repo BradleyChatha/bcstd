@@ -7,11 +7,12 @@ targetPath "bin"
 targetType "library"
 
 sourceFiles "dep/libd_win64.obj" platform="windows"
-sourceFiles "dep/libd_sysv.obj"  platform="linux"
+sourceFiles "dep/libd_sysv.o"  platform="linux"
 
 dflags "--conf=" platform="ldc2"
 dflags "-conf=" platform="dmd"
-lflags "/NODEFAULTLIB" "/ENTRY:main" "OneCore.lib" platform="windows-x86_64"
+lflags "-nostdlib" platform="posix-x86_64"
+lflags "/NODEFAULTLIB" "/ENTRY:main" "OneCore.lib" "shlwapi.lib" platform="windows-x86_64"
 
 configuration "default" {
     dflags "-betterC"
