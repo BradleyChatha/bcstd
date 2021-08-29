@@ -1,5 +1,7 @@
 # Overview
 
+**Project status:** On hiatus until I can finally work up the motivation to get this running on Linux. Currently, accessing any non-TLS global value crashes, and I just cba to figure out why.
+
 This is mostly just a little hobby project.
 
 This is a -betterC standard library with no dependency on libc and Phobos, for personal use. Either to kill time; as an exercise for implementing things, or just for a bit of fun.
